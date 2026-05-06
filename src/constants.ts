@@ -13,6 +13,7 @@ export const ITEM_SPEED = 60;
 export const BULLET_SPEED = 1000;
 export const SQUAD_SIZE = 3;
 export const UNIT_COST = 1;
+export const WIN_CONDITION = 50;
 
 export const LANES = [150, 250, 350, 450, 550];
 export const INITIAL_RATIOS = [1, 1, 1];

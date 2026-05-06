@@ -1,29 +1,29 @@
 import Phaser from "phaser";
 import { 
   MODES, SCREEN_WIDTH, SCREEN_HEIGHT, SQUAD_SIZE, LANES, 
-  HEALTH_MAX, ENEMY_SPEED, FRIENDLY_SPEED, BULLET_SPEED, UNIT_COST 
+  HEALTH_MAX, ENEMY_SPEED, FRIENDLY_SPEED, BULLET_SPEED, WIN_CONDITION
 } from "../constants";
 import { spawnParticles, getMultiplier, spawnMultiplier } from "../utils";
 import { Bullet, Enemy, Friendly, spawnItem } from "../entities";
 
 export class GameScene extends Phaser.Scene {
   // State
-  private health: number = HEALTH_MAX;
-  private combo: number = 0;
-  private gold: number = 0;
-  private killSequence: number[] = [];
-  private weaponMode: number = 0;
-  private lastShotTime: number = 0;
-  private lastHurtTime: number = 0;
-  private successCounts: number[] = [0, 0, 0];
-  private bombs: number = 0;
-  private rageRemaining: number = 0;
+  private health!: number;
+  private combo!: number;
+  private gold!: number;
+  private killSequence!: number[];
+  private weaponMode!: number;
+  private lastShotTime!: number;
+  private lastHurtTime!: number;
+  private controlMode!: "fortress" | "barracks";
+  private successCounts!: number[];
+  private bombs!: number;
+  private rageRemaining!: number;
 
-  private stagingSquads: Record<number, number[]> = {};
-  private stagingVisuals: Record<number, Phaser.GameObjects.Arc[]> = {};
-  private dragGhost: Phaser.GameObjects.Arc | null = null;
-  private dragColor: number | null = null;
-  private stalematedPairs: Set<string> = new Set();
+  private ratios!: number[];
+  private totalProduced!: number;
+  private producedCounts!: number[];
+  private stalematedPairs!: Set<string>;
   
   // Groups
   private bullets!: Phaser.Physics.Arcade.Group;
@@ -33,95 +33,185 @@ export class GameScene extends Phaser.Scene {
   // Objects
   private fortress!: Phaser.GameObjects.Rectangle;
   private fortressCore!: Phaser.GameObjects.Rectangle;
+  private barracks!: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super("GameScene");
+  }
+
+  init() {
+    this.health = HEALTH_MAX;
+    this.combo = 0;
+    this.gold = 0;
+    this.killSequence = [];
+    this.weaponMode = 0;
+    this.lastShotTime = 0;
+    this.lastHurtTime = 0;
+    this.controlMode = "fortress";
+    this.successCounts = [0, 0, 0];
+    this.bombs = 0;
+    this.rageRemaining = 0;
+
+    this.ratios = [1, 1, 1];
+    this.totalProduced = 0;
+    this.producedCounts = [0, 0, 0];
+    this.stalematedPairs = new Set();
   }
 
   create() {
     // Background
     this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x05050a).setOrigin(0).setDepth(0);
     
-    // Initialize Lanes & Staging Area
-    LANES.forEach((y, i) => {
-      this.add.grid(SCREEN_WIDTH/2, y, SCREEN_WIDTH, 2, 1, 1, 0xffffff, 0.1).setOrigin(0.5);
-      this.stagingSquads[i] = [];
-      this.stagingVisuals[i] = [];
+    // Draw lanes visualization
+    const laneHeight = 80;
+    LANES.forEach((y, index) => {
+      // Lane background track
+      this.add.rectangle(SCREEN_WIDTH / 2, y, SCREEN_WIDTH, laneHeight, 0xffffff, 0.03).setOrigin(0.5);
+      
+      // Lane center dashed-like guide
+      this.add.grid(SCREEN_WIDTH / 2, y, SCREEN_WIDTH, 2, 40, 40, 0xffffff, 0.05).setOrigin(0.5);
+      
+      // Boundary lines (drawn above and below the lane)
+      const topBound = y - laneHeight / 2;
+      const bottomBound = y + laneHeight / 2;
+      
+      this.add.line(0, 0, 0, topBound, SCREEN_WIDTH, topBound, 0x444466, 0.2).setOrigin(0).setLineWidth(1);
+      if (index === LANES.length - 1) {
+        this.add.line(0, 0, 0, bottomBound, SCREEN_WIDTH, bottomBound, 0x444466, 0.2).setOrigin(0).setLineWidth(1);
+      }
+      
+      // Lane indicators (optional text pointers for clarify)
+      this.add.text(10, y, `L${index + 1}`, { fontSize: '10px', color: '#444466' }).setOrigin(0, 0.5).setAlpha(0.5);
     });
 
     // Initialize Groups
-    this.bullets = this.physics.add.group({ classType: Bullet, runChildUpdate: true });
-    this.enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: true });
-    this.friendlies = this.physics.add.group({ classType: Friendly, runChildUpdate: true });
+    this.bullets = this.physics.add.group({
+      classType: Bullet,
+      runChildUpdate: true
+    });
 
-    // Fortress
+    this.enemies = this.physics.add.group({
+      classType: Enemy,
+      runChildUpdate: true
+    });
+
+    this.friendlies = this.physics.add.group({
+      classType: Friendly,
+      runChildUpdate: true
+    });
+
+    // Buildings
     this.fortress = this.add.rectangle(120, SCREEN_HEIGHT / 2, 60, 60, 0x282832).setStrokeStyle(4, 0x646496).setOrigin(0.5);
     this.physics.add.existing(this.fortress, true);
     if (this.fortress.body) (this.fortress.body as Phaser.Physics.Arcade.StaticBody).setSize(60, 60);
+    
     this.fortressCore = this.add.rectangle(120, SCREEN_HEIGHT / 2, 20, 20, MODES[0].color).setOrigin(0.5);
 
-    // Dispensers (New Barracks UI at the back)
-    MODES.forEach((mode, i) => {
-      const y = SCREEN_HEIGHT / 2 - 60 + i * 60;
-      const dispenser = this.add.circle(40, y, 20, mode.color).setInteractive();
-      dispenser.setStrokeStyle(3, 0xffffff);
-      
-      dispenser.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-        if (this.gold >= UNIT_COST) {
-          this.dragColor = mode.color;
-          this.dragGhost = this.add.circle(pointer.x, pointer.y, 15, mode.color).setAlpha(0.5);
-          this.sound.play("change", { volume: 0.2 });
-        } else {
-          this.sound.play("laserShootFailed", { volume: 0.3 });
+    this.barracks = this.add.rectangle(50, SCREEN_HEIGHT / 2 + 80, 60, 60, 0x282832).setStrokeStyle(4, 0x649664).setOrigin(0.5);
+    this.physics.add.existing(this.barracks, true);
+    if (this.barracks.body) (this.barracks.body as Phaser.Physics.Arcade.StaticBody).setSize(60, 60);
+
+    // Input
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      if (pointer.leftButtonDown()) {
+        this.handleLeftClick(pointer);
+      } else if (pointer.rightButtonDown()) {
+        this.switchMode();
+      }
+    });
+    
+    // Disable context menu for right click
+    if (this.game.canvas) {
+      this.game.canvas.oncontextmenu = (e) => { e.preventDefault(); };
+    }
+
+    // Keyboard
+    this.input.keyboard?.on("keydown-TAB", () => {
+      this.controlMode = this.controlMode === "fortress" ? "barracks" : "fortress";
+      this.sound.play("change", { volume: 0.3 });
+      this.updateControlVisuals();
+    });
+
+    this.input.keyboard?.on("keydown-SPACE", () => {
+      if (this.controlMode === "fortress") this.switchMode();
+    });
+
+    const ratioKeys = ["ONE", "TWO", "THREE"];
+    const ratioDecreaseKeys = ["Q", "W", "E"];
+    
+    ratioKeys.forEach((key, i) => {
+      this.input.keyboard?.on(`keydown-${key}`, () => {
+        if (this.controlMode === "barracks") {
+          this.ratios[i] = Math.min(this.ratios[i] + 1, 9);
+          this.events.emit("updateRatios", this.ratios);
         }
       });
     });
 
-    // Global Input handling
-    this.input.mouse?.disableContextMenu();
-
-    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      if (pointer.rightButtonDown()) {
-        this.switchMode();
-      } else if (pointer.leftButtonDown() && !this.dragGhost && pointer.x > 80) {
-        this.shoot(true);
-      }
-    });
-
-    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
-      if (this.dragGhost) {
-        this.dragGhost.setPosition(pointer.x, pointer.y);
-      }
-    });
-
-    this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
-      if (this.dragGhost && this.dragColor !== null) {
-        if (pointer.x > 80) {
-          const laneIndex = this.getClosestLane(pointer.y);
-          this.addToStaging(laneIndex, this.dragColor);
+    ratioDecreaseKeys.forEach((key, i) => {
+      this.input.keyboard?.on(`keydown-${key}`, () => {
+        if (this.controlMode === "barracks") {
+          this.ratios[i] = Math.max(this.ratios[i] - 1, 0);
+          this.events.emit("updateRatios", this.ratios);
         }
-        this.dragGhost.destroy();
-        this.dragGhost = null;
-        this.dragColor = null;
-      }
+      });
     });
 
-    this.input.keyboard?.on("keydown-SPACE", () => this.switchMode());
-    this.input.keyboard?.on("keydown-R", () => this.useBomb());
+    this.input.keyboard?.on("keydown-R", () => {
+      this.useBomb();
+    });
 
     // Collisions
-    this.physics.add.overlap(this.bullets, this.enemies, (b, e) => this.handleBulletEnemyCollision(b as Bullet, e as Enemy));
-    this.physics.add.overlap(this.enemies, this.fortress, (e, f) => this.handleEnemyFortressCollision(e, f));
-    this.physics.add.overlap(this.friendlies, this.enemies, (f, e) => this.handleFriendlyEnemyCollision(f as Friendly, e as Enemy));
+    this.physics.add.overlap(this.bullets, this.enemies, (b, e) => {
+      this.handleBulletEnemyCollision(b as Bullet, e as Enemy);
+    });
+
+    this.physics.add.overlap(this.enemies, this.fortress, (e, f) => {
+      this.handleEnemyFortressCollision(e, f);
+    });
+
+    this.physics.add.overlap(this.friendlies, this.enemies, (f, e) => {
+      this.handleFriendlyEnemyCollision(f as Friendly, e as Enemy);
+    });
 
     // Custom Events
-    this.events.on("bulletMissed", () => this.updateCombo(0));
-    this.events.on("friendlyScored", (color: number) => this.handleFriendlyScore(color));
-    this.events.on("friendlyUpdate", (f: Friendly) => this.updateFriendlyAI(f));
+    this.events.on("bulletMissed", () => {
+      this.updateCombo(0);
+    });
 
-    // Enemy Spawning Loops
-    this.time.addEvent({ delay: 3000, callback: this.spawnEnemySquad, callbackScope: this, loop: true });
-    this.time.addEvent({ delay: 10000, callback: () => { if (Math.random() < 0.33) this.spawnElite(); }, callbackScope: this, loop: true });
+    this.events.on("friendlyScored", (color: number) => {
+      this.handleFriendlyScore(color);
+    });
+
+    this.events.on("friendlyUpdate", (f: Friendly) => {
+      this.updateFriendlyAI(f);
+    });
+
+    // Production Loop
+    this.time.addEvent({
+      delay: 3000,
+      callback: this.autoProduce,
+      callbackScope: this,
+      loop: true
+    });
+
+    // Enemy Spawning Loop
+    this.time.addEvent({
+      delay: 3000,
+      callback: this.spawnEnemySquad,
+      callbackScope: this,
+      loop: true
+    });
+
+    // Elite Spawning Loop
+    this.time.addEvent({
+      delay: 10000,
+      callback: () => {
+        if (Math.random() < 0.33) this.spawnElite();
+      },
+      callbackScope: this,
+      loop: true
+    });
 
     // Initial Sync
     this.time.delayedCall(100, () => {
@@ -129,7 +219,14 @@ export class GameScene extends Phaser.Scene {
       this.events.emit("updateSuccess", this.successCounts);
       this.events.emit("updateCombo", this.combo);
       this.events.emit("updateBombs", this.bombs);
+      this.events.emit("updateRatios", this.ratios);
+      this.events.emit("updateBarracksPos", this.barracks.x, this.barracks.y);
       this.events.emit("updateHealth", this.health);
+      this.updateControlVisuals();
+    });
+
+    this.events.on("shutdown", () => {
+      this.events.removeAllListeners();
     });
   }
 
@@ -138,6 +235,7 @@ export class GameScene extends Phaser.Scene {
       this.rageRemaining -= delta / 1000;
       this.events.emit("updateRage", this.rageRemaining);
       
+      // Auto-shoot during rage
       if (time > this.lastShotTime + 100) {
         this.shoot();
       }
@@ -147,8 +245,10 @@ export class GameScene extends Phaser.Scene {
       }
     }
     
+    // Core pulsing
     this.fortressCore.setAlpha(0.5 + 0.3 * Math.sin(time / 200));
 
+    // Handle Stalemate Early Termination (Only if whole squad is gone)
     const activeFriendlies = this.friendlies.getChildren() as Friendly[];
     const activeEnemies = this.enemies.getChildren() as Enemy[];
 
@@ -170,51 +270,37 @@ export class GameScene extends Phaser.Scene {
     checkWipe(activeEnemies, activeFriendlies);
   }
 
-  private getClosestLane(y: number): number {
-    let minDist = Infinity;
-    let index = 0;
-    LANES.forEach((laneY, i) => {
-      const d = Math.abs(laneY - y);
-      if (d < minDist) {
-        minDist = d;
-        index = i;
-      }
-    });
-    return index;
-  }
+  private handleLeftClick(pointer: Phaser.Input.Pointer) {
+    const clickedFortress = this.fortress.getBounds().contains(pointer.x, pointer.y);
+    const clickedBarracks = this.barracks.getBounds().contains(pointer.x, pointer.y);
 
-  private addToStaging(laneIndex: number, color: number) {
-    this.updateGold(-UNIT_COST);
-    const squad = this.stagingSquads[laneIndex];
-    squad.push(color);
+    if (clickedFortress) {
+      this.controlMode = "fortress";
+      this.sound.play("change");
+      this.updateControlVisuals();
+      return;
+    }
 
-    const laneY = LANES[laneIndex];
-    // Draw staging visuals visually behind/around fortress
-    const visX = 70 + squad.length * 15; 
-    const vis = this.add.circle(visX, laneY, 6, color).setAlpha(0.6);
-    this.stagingVisuals[laneIndex].push(vis);
+    if (clickedBarracks) {
+      this.controlMode = "barracks";
+      this.sound.play("change");
+      this.updateControlVisuals();
+      return;
+    }
 
-    if (squad.length === SQUAD_SIZE) {
-      this.spawnStagedSquad(laneIndex);
+    if (this.controlMode === "fortress") {
+      this.shoot(true);
     }
   }
 
-  private spawnStagedSquad(laneIndex: number) {
-    const squadColors = [...this.stagingSquads[laneIndex]];
-    this.stagingSquads[laneIndex] = [];
-
-    this.stagingVisuals[laneIndex].forEach(v => v.destroy());
-    this.stagingVisuals[laneIndex] = [];
-
-    const squadId = `f_squad_${this.time.now}_${laneIndex}`;
-    squadColors.forEach((color, i) => {
-      this.time.delayedCall(i * 150, () => {
-        const f = this.friendlies.get() as Friendly;
-        if (f) {
-          f.spawn(100, LANES[laneIndex], color, squadId, laneIndex);
-        }
-      });
-    });
+  private updateControlVisuals() {
+    if (this.controlMode === "fortress") {
+      this.fortress.setStrokeStyle(6, 0xffffff);
+      this.barracks.setStrokeStyle(4, 0x649664);
+    } else {
+      this.barracks.setStrokeStyle(6, 0xffffff);
+      this.fortress.setStrokeStyle(4, 0x646496);
+    }
   }
 
   private switchMode() {
@@ -223,6 +309,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(100, 0.005);
     this.fortressCore.setFillStyle(MODES[this.weaponMode].color);
     
+    // Mode text popup
     const txt = this.add.text(this.fortress.x, this.fortress.y - 60, MODES[this.weaponMode].name, {
       fontSize: "24px",
       color: Phaser.Display.Color.IntegerToColor(MODES[this.weaponMode].color).rgba
@@ -286,6 +373,45 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private autoProduce() {
+    const totalRatio = this.ratios.reduce((a, b) => a + b, 0);
+    if (totalRatio === 0 || this.gold < SQUAD_SIZE) return;
+
+    this.updateGold(-SQUAD_SIZE);
+    
+    const squadId = `f_squad_${this.totalProduced}`;
+    const laneIndex = Phaser.Math.Between(0, LANES.length - 1);
+    
+    for (let i = 0; i < SQUAD_SIZE; i++) {
+      const colorIndex = this.getNextColorIndex();
+      this.time.delayedCall(i * 150, () => {
+        const f = this.friendlies.get() as Friendly;
+        if (f) {
+          f.spawn(this.barracks.x, this.barracks.y, MODES[colorIndex].color, squadId, laneIndex);
+        }
+      });
+    }
+  }
+
+  private getNextColorIndex(): number {
+    const totalRatio = this.ratios.reduce((a, b) => a + b, 0);
+    let bestIndex = 0;
+    let maxGap = -Infinity;
+
+    for (let i = 0; i < 3; i++) {
+      const targetCount = (this.totalProduced + 1) * (this.ratios[i] / totalRatio);
+      const gap = targetCount - this.producedCounts[i];
+      if (gap > maxGap) {
+        maxGap = gap;
+        bestIndex = i;
+      }
+    }
+
+    this.producedCounts[bestIndex]++;
+    this.totalProduced++;
+    return bestIndex;
+  }
+
   private spawnEnemySquad() {
     const colorIndex = Phaser.Math.Between(0, 2);
     const squadId = `e_squad_${this.time.now}`;
@@ -313,7 +439,11 @@ export class GameScene extends Phaser.Scene {
 
   private handleBulletEnemyCollision(bullet: Bullet, enemy: Enemy) {
     if (!bullet.active || !enemy.active) return;
+
+    // For piercing bullets, check if this specific enemy has already been hit by this bullet
     if (bullet.isPierce && bullet.hitTargets.has(enemy)) return;
+    
+    // For non-piercing bullets, check if the bullet has hit anything at all
     if (!bullet.isPierce && bullet.hasHit) return;
 
     const isMismatch = bullet.col !== enemy.col;
@@ -337,6 +467,7 @@ export class GameScene extends Phaser.Scene {
 
     if (enemy.hp <= 0) {
       this.killEnemy(enemy);
+      // CD Incentive: Reduce cooldown after a kill
       const mode = MODES[this.weaponMode];
       const cdMs = mode.cd * 1000;
       this.lastShotTime = this.time.now - (cdMs - 100);
@@ -403,11 +534,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleEnemyFortressCollision(enemy: any, fortress: any) {
-    if (!enemy || !enemy.active || enemy === this.fortress) return;
+    // Explicitly check that we are not deactivating the fortress or barracks
+    if (!enemy || !enemy.active || enemy === this.fortress || enemy === this.barracks) return;
     
+    // Safety check: ensure we are calling deactivate on the enemy instance
     if (typeof enemy.deactivate === 'function') {
       enemy.deactivate();
     } else {
+      // Last resort fallback only for real enemies
       enemy.setActive(false);
       enemy.setVisible(false);
       if (enemy.body && 'setVelocity' in enemy.body) {
@@ -426,48 +560,57 @@ export class GameScene extends Phaser.Scene {
       this.events.emit("updateHealth", this.health);
       
       if (this.health <= 0) {
-        this.scene.start("GameScene");
+        this.scene.stop("UIScene");
+        this.scene.start("ResultScene", { 
+          isVictory: false, 
+          gold: this.gold, 
+          successCounts: this.successCounts 
+        });
       }
     }
   }
 
   private handleFriendlyEnemyCollision(friendly: Friendly, enemy: Enemy) {
     if (!friendly.active || !enemy.active) return;
+
     const pairKey = `${friendly.squadId}_${enemy.squadId}`;
     if (this.stalematedPairs.has(pairKey)) return;
+
     if (friendly.isStalemated || enemy.isStalemated) return;
 
+    // Mark this pair as having stalemated once
     this.stalematedPairs.add(pairKey);
 
+    // Elite vs Friendly special case: 0.1s stalemate, elite kills friendly without taking damage
     if (enemy.isElite) {
       friendly.isStalemated = true;
       enemy.isStalemated = true;
       friendly.stalemateTarget = enemy;
       enemy.stalemateTarget = friendly;
-      friendly.stalemateOpponentSquadId = enemy.squadId;
-      enemy.stalemateOpponentSquadId = friendly.squadId;
-
       this.time.delayedCall(100, () => {
         if (friendly.active && enemy.active && friendly.stalemateTarget === enemy) {
           friendly.deactivate();
           enemy.isStalemated = false;
           enemy.stalemateTarget = null;
-          enemy.stalemateOpponentSquadId = null;
           enemy.body.setVelocity(-enemy.speed, 0);
         } else {
-          if (friendly.active) { friendly.isStalemated = false; friendly.stalemateTarget = null; friendly.stalemateOpponentSquadId = null; }
-          if (enemy.active) { enemy.isStalemated = false; enemy.stalemateTarget = null; enemy.stalemateOpponentSquadId = null; }
+          if (friendly.active) { friendly.isStalemated = false; friendly.stalemateTarget = null; }
+          if (enemy.active) { enemy.isStalemated = false; enemy.stalemateTarget = null; }
         }
       });
       return;
     }
 
+    // Squad-wide Stalemate logic for normal enemies
     const fSquad = (this.friendlies.getChildren() as Friendly[]).filter(u => u.active && u.squadId === friendly.squadId);
     const eSquad = (this.enemies.getChildren() as Enemy[]).filter(u => u.active && u.squadId === enemy.squadId);
 
+    // Calculate duration based on numerical difference
+    // Time = 2s / (1 + diff). 0 diff = 2s, 1 diff = 1s, 2 diff = 0.66s
     const diff = Math.abs(fSquad.length - eSquad.length);
     const duration = 2000 / (1 + diff);
 
+    // Set colliding pair to stalemate
     friendly.isStalemated = true;
     enemy.isStalemated = true;
     friendly.stalemateTarget = enemy;
@@ -475,6 +618,7 @@ export class GameScene extends Phaser.Scene {
     friendly.stalemateOpponentSquadId = enemy.squadId;
     enemy.stalemateOpponentSquadId = friendly.squadId;
 
+    // Set other squad members who are close to also pause (simulating group battle)
     fSquad.forEach(u => {
       if (u.active && !u.isStalemated && Phaser.Math.Distance.Between(u.x, u.y, friendly.x, friendly.y) < 50) {
         u.isStalemated = true;
@@ -489,9 +633,12 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.time.delayedCall(duration, () => {
+      // Direct Squad-based resolution: Match colors regardless of physical contact position
       if (friendly.active && enemy.active) {
         const currentFSquad = (this.friendlies.getChildren() as Friendly[]).filter(u => u.active && u.squadId === friendly.squadId);
         const currentESquad = (this.enemies.getChildren() as Enemy[]).filter(u => u.active && u.squadId === enemy.squadId);
+
+        // For each friendly in the squad, try to find a matching color enemy in the other squad
         currentFSquad.forEach(f => {
           const matchingEnemy = currentESquad.find(e => e.active && e.col === f.col);
           if (matchingEnemy) {
@@ -502,14 +649,17 @@ export class GameScene extends Phaser.Scene {
         });
       }
 
+      // Final cleanup: Ensure all survivors resume movement
       const finalFSquad = (this.friendlies.getChildren() as Friendly[]).filter(u => u.active && u.squadId === friendly.squadId);
       const finalESquad = (this.enemies.getChildren() as Enemy[]).filter(u => u.active && u.squadId === enemy.squadId);
 
-      finalFSquad.forEach(u => { u.isStalemated = false; u.stalemateTarget = null; u.stalemateOpponentSquadId = null; });
+      finalFSquad.forEach(u => {
+        u.isStalemated = false;
+        u.stalemateTarget = null;
+      });
       finalESquad.forEach(u => {
         u.isStalemated = false;
         u.stalemateTarget = null;
-        u.stalemateOpponentSquadId = null;
         u.body.setVelocity(-u.speed, 0);
       });
     });
@@ -520,8 +670,14 @@ export class GameScene extends Phaser.Scene {
     if (idx !== -1) {
       this.successCounts[idx]++;
       this.events.emit("updateSuccess", this.successCounts);
-      if (this.successCounts.every(c => c >= 50)) {
-        this.scene.start("GameScene");
+      
+      if (this.successCounts.every(c => c >= WIN_CONDITION)) {
+        this.scene.stop("UIScene");
+        this.scene.start("ResultScene", { 
+          isVictory: true, 
+          gold: this.gold, 
+          successCounts: this.successCounts 
+        });
       }
     }
   }
@@ -529,16 +685,21 @@ export class GameScene extends Phaser.Scene {
   private updateFriendlyAI(f: Friendly) {
     const visionRadius = SCREEN_WIDTH * 0.25;
     let target: Enemy | null = null;
+
     this.enemies.getChildren().forEach((obj) => {
       const e = obj as Enemy;
       if (!e.active) return;
+      
       const dist = Phaser.Math.Distance.Between(f.x, f.y, e.x, e.y);
       if (dist < visionRadius && e.x >= f.x && Math.abs(e.laneIndex - f.laneIndex) <= 1) {
-        if (!target || e.x < target.x) target = e;
+        if (!target || e.x < target.x) {
+          target = e;
+        }
       }
     });
+
     if (target) {
-      const angle = Phaser.Math.Angle.Between(f.x, f.y, target.x, target.y);
+      const angle = Phaser.Math.Angle.Between(f.x, f.y, (target as Enemy).x, (target as Enemy).y);
       this.physics.velocityFromRotation(angle, FRIENDLY_SPEED, f.body.velocity);
     } else {
       const targetY = LANES[f.laneIndex];
@@ -568,6 +729,7 @@ export class GameScene extends Phaser.Scene {
     if (this.bombs <= 0) return;
     this.bombs--;
     this.events.emit("updateBombs", this.bombs);
+
     this.cameras.main.flash(500, 255, 255, 255);
     this.enemies.getChildren().forEach((obj) => {
       const e = obj as Enemy;

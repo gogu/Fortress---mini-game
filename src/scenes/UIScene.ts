@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { SCREEN_WIDTH } from "../constants";
+import { SCREEN_WIDTH, WIN_CONDITION } from "../constants";
 
 export class UIScene extends Phaser.Scene {
   private goldLabel!: Phaser.GameObjects.Text;
@@ -7,6 +7,7 @@ export class UIScene extends Phaser.Scene {
   private comboLabel!: Phaser.GameObjects.Text;
   private bombLabel!: Phaser.GameObjects.Text;
   private rageLabel!: Phaser.GameObjects.Text;
+  private fpsLabel!: Phaser.GameObjects.Text;
   private sequenceSlots: Phaser.GameObjects.Rectangle[] = [];
 
   private ratioLabel!: Phaser.GameObjects.Text;
@@ -16,12 +17,17 @@ export class UIScene extends Phaser.Scene {
     super("UIScene");
   }
 
+  init() {
+    this.sequenceSlots = [];
+  }
+
   create() {
     this.goldLabel = this.add.text(SCREEN_WIDTH / 2, 35, "GOLD: 0", { fontSize: "24px", color: "#ffd700" }).setOrigin(0.5);
-    this.successLabel = this.add.text(SCREEN_WIDTH / 2, 60, "PROGRESS: R 0/50 | G 0/50 | B 0/50", { fontSize: "14px", color: "#c8c8c8" }).setOrigin(0.5);
+    this.successLabel = this.add.text(SCREEN_WIDTH / 2, 60, `PROGRESS: R 0/${WIN_CONDITION} | G 0/${WIN_CONDITION} | B 0/${WIN_CONDITION}`, { fontSize: "14px", color: "#c8c8c8" }).setOrigin(0.5);
     this.comboLabel = this.add.text(SCREEN_WIDTH / 2, 100, "COMBO: 0", { fontSize: "36px", color: "#ffffff" }).setOrigin(0.5).setAlpha(0);
     this.bombLabel = this.add.text(SCREEN_WIDTH - 20, 50, "BOMBS: 0/2", { fontSize: "16px", color: "#ff6464" }).setOrigin(1, 0);
     this.rageLabel = this.add.text(SCREEN_WIDTH - 20, 75, "RAGE: 0s", { fontSize: "16px", color: "#ff64ff" }).setOrigin(1, 0).setAlpha(0);
+    this.fpsLabel = this.add.text(SCREEN_WIDTH - 20, 20, "FPS: 0", { fontSize: "14px", color: "#00ff00" }).setOrigin(1, 0);
     this.ratioLabel = this.add.text(50, 150, "1 : 1 : 1", { fontSize: "12px", color: "#c8c8c8" }).setOrigin(0.5);
 
     // Health Bar
@@ -53,7 +59,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     gameScene.events.on("updateSuccess", (counts: number[]) => {
-      this.successLabel.setText(`PROGRESS: R ${counts[0]}/50 | G ${counts[1]}/50 | B ${counts[2]}/50`);
+      this.successLabel.setText(`PROGRESS: R ${counts[0]}/${WIN_CONDITION} | G ${counts[1]}/${WIN_CONDITION} | B ${counts[2]}/${WIN_CONDITION}`);
       this.tweens.add({ targets: this.successLabel, scale: 1.1, duration: 100, yoyo: true });
     });
 
@@ -102,5 +108,9 @@ export class UIScene extends Phaser.Scene {
         });
       });
     });
+  }
+
+  update() {
+    this.fpsLabel.setText(`FPS: ${Math.round(this.game.loop.actualFps)}`);
   }
 }

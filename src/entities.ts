@@ -152,6 +152,7 @@ export class Friendly extends Phaser.GameObjects.Arc {
   public squadId: string = "";
   public isStalemated: boolean = false;
   public stalemateTarget: any = null;
+  public stalemateOpponentSquadId: string | null = null;
   public hasScored: boolean = false;
   public laneIndex: number = 0;
 
