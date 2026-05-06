@@ -1,7 +1,7 @@
-export const MODES = (k: any) => [
-  { name: "RAPID", color: k.rgb(0, 242, 255), cd: 2.0, dmg: 1 },
-  { name: "BLAST", color: k.rgb(255, 140, 0), cd: 2.0, dmg: 5 },
-  { name: "PIERCE", color: k.rgb(160, 32, 240), cd: 2.0, dmg: 3 },
+export const MODES = [
+  { name: "RAPID", color: 0x00f2ff, cd: 2.0, dmg: 1 },
+  { name: "BLAST", color: 0xff8c00, cd: 2.0, dmg: 5 },
+  { name: "PIERCE", color: 0xa020f0, cd: 2.0, dmg: 3 },
 ];
 
 export const SCREEN_WIDTH = 800;
@@ -14,8 +14,7 @@ export const BULLET_SPEED = 1000;
 export const SQUAD_SIZE = 3;
 export const UNIT_COST = 1;
 
-export const LANES = (k: any) => {
-  const startY = 150;
-  const spacing = 100;
-  return [0, 1, 2, 3, 4].map(i => startY + i * spacing);
-};
+export const LANES = [150, 250, 350, 450, 550];
+export const INITIAL_RATIOS = [1, 1, 1];
+
+

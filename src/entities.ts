@@ -1,259 +1,221 @@
-import { BULLET_SPEED, ENEMY_SPEED, FRIENDLY_SPEED, LANES } from "./constants";
+import Phaser from "phaser";
+import { BULLET_SPEED, ENEMY_SPEED, FRIENDLY_SPEED, LANES, SCREEN_WIDTH, SCREEN_HEIGHT } from "./constants";
 
-// Cache for shared squad targeting to avoid redundant searches per frame
-const squadTargetCache: Record<string, { frame: number, target: any }> = {};
+export class Bullet extends Phaser.GameObjects.Rectangle {
+  declare body: Phaser.Physics.Arcade.Body;
+  public dmg: number = 1;
+  public hasHit: boolean = false;
+  public isRage: boolean = false;
+  public isBlast: boolean = false;
+  public isPierce: boolean = false;
+  public col: number = 0xffffff;
+  public hitTargets: Set<any> = new Set();
 
-export function setupFriendlyPool(k: any, pool: any[], onSuccess: (color: any) => void) {
-  const lanes = LANES(k);
-  return (pos: any, color: any, squadId: string, laneIndex: number) => {
-    let f = pool.find((item) => !item.active);
-    if (!f) {
-      f = k.add([
-        k.circle(15),
-        k.pos(pos),
-        k.color(color),
-        k.outline(2, k.rgb(255, 255, 255)),
-        k.anchor("center"),
-        k.area(),
-        "friendly",
-        {
-          active: true,
-          col: color,
-          squadId: squadId,
-          isStalemated: false,
-          stalemateTarget: null,
-          hasScored: false,
-          laneIndex: laneIndex,
-        },
-      ]);
-      f.onUpdate(() => {
-        if (!f.active) return;
+  constructor(scene: Phaser.Scene) {
+    super(scene, 0, 0, 24, 6, 0xffffff);
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+  }
 
-        // Scoring: Cross the right edge
-        if (!f.hasScored && f.pos.x > k.width()) {
-          f.hasScored = true;
-          onSuccess(f.col);
-        }
+  fire(x: number, y: number, velocityX: number, velocityY: number, dmg: number, isRage: boolean, isBlast: boolean, isPierce: boolean, color: number) {
+    this.setPosition(x, y);
+    this.setActive(true);
+    this.setVisible(true);
+    this.hasHit = false;
+    this.hitTargets.clear();
+    this.dmg = dmg;
+    this.isRage = isRage;
+    this.isBlast = isBlast;
+    this.isPierce = isPierce;
+    this.col = color;
+    this.setFillStyle(color);
+    if (this.body) {
+      this.body.setAllowGravity(false);
+      this.body.setVelocity(velocityX * BULLET_SPEED, velocityY * BULLET_SPEED);
+    }
+  }
 
-        // Instant Resume Logic: If target is destroyed, resume movement
-        if (f.isStalemated) {
-          if (f.stalemateTarget && !f.stalemateTarget.active) {
-            f.isStalemated = false;
-            f.stalemateTarget = null;
-          }
-          return;
-        }
+  update() {
+    if (this.x < 0 || this.x > SCREEN_WIDTH || this.y < 0 || this.y > SCREEN_HEIGHT) {
+      this.deactivate(true);
+    }
+  }
 
-        const currentFrame = k.time();
-        const visionRadius = k.width() * 0.25;
-        
-        let target = null;
+  deactivate(missed: boolean = false) {
+    if (!this.active) return;
+    if (missed && !this.hasHit && !this.isRage) {
+      this.scene.events.emit("bulletMissed");
+    }
+    this.setActive(false);
+    this.setVisible(false);
+    this.hitTargets.clear();
+    if (this.body && 'setVelocity' in this.body) {
+      this.body.setVelocity(0, 0);
+    }
+  }
+}
 
-        if (squadTargetCache[f.squadId] && squadTargetCache[f.squadId].frame === currentFrame) {
-          target = squadTargetCache[f.squadId].target;
-          if (target && !target.active) target = null;
-        } else {
-          const enemies = k.get("enemy").filter((e: any) => 
-            e.active && 
-            Math.abs(e.laneIndex - f.laneIndex) <= 1 &&
-            f.pos.dist(e.pos) < visionRadius &&
-            e.pos.x >= f.pos.x
-          );
+export class Enemy extends Phaser.GameObjects.Rectangle {
+  declare body: Phaser.Physics.Arcade.Body;
+  public hp: number = 1;
+  public maxHp: number = 1;
+  public speed: number = ENEMY_SPEED;
+  public col: number = 0xffffff;
+  public squadId: string = "";
+  public isStalemated: boolean = false;
+  public stalemateTarget: any = null;
+  public stalemateOpponentSquadId: string | null = null;
+  public isElite: boolean = false;
+  public eliteTimer: number = 0;
+  public eliteColorIdx: number = 0;
+  public laneIndex: number = 0;
 
-          let minDist = Infinity;
-          for (const e of enemies) {
-            const d = f.pos.dist(e.pos);
-            if (d < minDist) {
-              minDist = d;
-              target = e;
-            }
-          }
-          squadTargetCache[f.squadId] = { frame: currentFrame, target: target };
-        }
+  private eliteColors = [0x00f2ff, 0xff8c00, 0xa020f0];
 
-        if (target) {
-          const dir = target.pos.sub(f.pos).unit();
-          let moveVec = dir.scale(FRIENDLY_SPEED);
-          f.move(moveVec);
-        } else {
-          // Steering back to lane center
-          const targetY = lanes[f.laneIndex];
-          const diffY = targetY - f.pos.y;
-          const steerY = k.clamp(diffY * 2, -FRIENDLY_SPEED * 0.5, FRIENDLY_SPEED * 0.5);
-          f.move(FRIENDLY_SPEED, steerY);
-        }
+  constructor(scene: Phaser.Scene) {
+    super(scene, 0, 0, 30, 30, 0xffffff);
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+  }
 
-        if (f.pos.x > k.width() + 100 || f.pos.x < -100 || f.pos.y > k.height() + 100 || f.pos.y < -100) {
-          f.active = false;
-          f.hidden = true;
-          f.paused = true;
-        }
-      });
-      pool.push(f);
+  spawn(x: number, y: number, color: number, speed: number, squadId: string, laneIndex: number, isElite: boolean) {
+    this.setPosition(x, y);
+    this.setActive(true);
+    this.setVisible(true);
+    
+    this.col = color;
+    this.speed = speed;
+    this.hp = 1;
+    this.squadId = squadId;
+    this.laneIndex = laneIndex;
+    this.isElite = isElite;
+    this.eliteTimer = 0;
+    this.isStalemated = false;
+    this.stalemateTarget = null;
+
+    this.setFillStyle(color);
+    this.setStrokeStyle(2, 0xffffff);
+    
+    if (isElite) {
+      this.setRotation(Math.PI / 4); // Rotate for elite look
     } else {
-      f.active = true;
-      f.hidden = false;
-      f.paused = false;
-      f.pos = k.vec2(pos);
-      f.color = color;
-      f.col = color;
-      f.squadId = squadId;
-      f.isStalemated = false;
-      f.stalemateTarget = null;
-      f.hasScored = false;
-      f.laneIndex = laneIndex;
+      this.setRotation(0);
     }
-    return f;
-  };
+
+    if (this.body) {
+      this.body.setVelocity(-speed, 0);
+    }
+  }
+
+  preUpdate(time: number, delta: number) {
+    if (!this.active) return;
+
+    if (this.isElite) {
+      this.eliteTimer += delta;
+      if (this.eliteTimer >= 3000) {
+        this.eliteTimer = 0;
+        this.eliteColorIdx = (this.eliteColorIdx + 1) % 3;
+        const newCol = this.eliteColors[this.eliteColorIdx];
+        this.col = newCol;
+        this.setFillStyle(newCol);
+      }
+    }
+
+    if (this.isStalemated) {
+      if (this.stalemateTarget && !this.stalemateTarget.active) {
+        this.isStalemated = false;
+        this.stalemateTarget = null;
+        if (this.body) this.body.setVelocity(-this.speed, 0);
+      } else {
+        if (this.body) this.body.setVelocity(0, 0);
+      }
+      return;
+    }
+
+    if (this.x < -100) {
+      this.deactivate();
+    }
+  }
+
+  deactivate() {
+    this.setActive(false);
+    this.setVisible(false);
+    if (this.body && 'setVelocity' in this.body) {
+      this.body.setVelocity(0, 0);
+    }
+  }
 }
 
-export function setupBulletPool(k: any, bulletPool: any[], updateCombo: Function) {
-  return function getBullet() {
-    let b = bulletPool.find(p => !p.active);
-    if (!b) {
-      b = k.add([
-        k.rect(24, 6),
-        k.pos(0, 0),
-        k.rotate(0),
-        k.color(255, 255, 255),
-        k.area(),
-        "bullet",
-        { active: false, dmg: 1, moveDir: k.vec2(0), hasHit: false, isBlast: false, isPierce: false, isRage: false }
-      ]);
-      b.onUpdate(() => {
-        if (!b.active) return;
-        b.move(b.moveDir.x * BULLET_SPEED, b.moveDir.y * BULLET_SPEED);
-        if (b.pos.x < 0 || b.pos.x > k.width() || b.pos.y < 0 || b.pos.y > k.height()) {
-          b.active = false;
-          b.hidden = true;
-          b.paused = true;
-          if (!b.hasHit && !b.isRage) updateCombo(0);
-        }
-      });
-      bulletPool.push(b);
-    }
-    return b;
-  };
-}
+export class Friendly extends Phaser.GameObjects.Arc {
+  declare body: Phaser.Physics.Arcade.Body;
+  public col: number = 0xffffff;
+  public squadId: string = "";
+  public isStalemated: boolean = false;
+  public stalemateTarget: any = null;
+  public hasScored: boolean = false;
+  public laneIndex: number = 0;
 
-export function setupEnemyPool(k: any, enemyPool: any[]) {
-  const eliteColors = [
-    k.rgb(0, 242, 255),
-    k.rgb(255, 140, 0),
-    k.rgb(160, 32, 240)
-  ];
+  constructor(scene: Phaser.Scene) {
+    super(scene, 0, 0, 15, 0, 360, false, 0xffffff);
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+  }
 
-  const getEnemy = () => {
-    let e = enemyPool.find(p => !p.active);
-    if (!e) {
-      e = k.add([
-        k.pos(0, 0),
-        k.color(255, 255, 255),
-        k.anchor("center"),
-        k.scale(1),
-        k.area({ shape: new k.Rect(k.vec2(-15, -15), 30, 30) }),
-        k.z(20),
-        "enemy",
-        { 
-          active: false, 
-          hp: 1, 
-          maxHp: 1, 
-          speed: ENEMY_SPEED, 
-          col: k.WHITE, 
-          squadId: "", 
-          isStalemated: false, 
-          stalemateTarget: null, 
-          isElite: false,
-          eliteTimer: 0,
-          eliteColorIdx: 0,
-          laneIndex: 0,
-        },
-        {
-          id: "enemy_draw",
-          draw() {
-            if (this.isElite) {
-              k.drawPolygon({
-                pts: [k.vec2(0, -18), k.vec2(18, 18), k.vec2(-18, 18)],
-                color: this.color,
-                outline: { width: 2, color: k.WHITE },
-              });
-            } else {
-              k.drawRect({
-                width: 30,
-                height: 30,
-                color: this.color,
-                outline: { width: 2, color: k.WHITE },
-                anchor: "center",
-              });
-            }
-          }
-        }
-      ]);
-      e.onUpdate(() => {
-        if (!e.active) return;
-
-        if (e.isElite) {
-          e.eliteTimer += k.dt();
-          if (e.eliteTimer >= 3) {
-            e.eliteTimer = 0;
-            e.eliteColorIdx = (e.eliteColorIdx + 1) % 3;
-            const newCol = eliteColors[e.eliteColorIdx];
-            e.color = newCol;
-            e.col = newCol;
-          }
-        }
-
-        // Instant Resume Logic: If target is destroyed, resume movement
-        if (e.isStalemated) {
-          if (e.stalemateTarget && !e.stalemateTarget.active) {
-            e.isStalemated = false;
-            e.stalemateTarget = null;
-          }
-          return;
-        }
-
-        e.move(-e.speed, 0);
-
-        if (e.pos.x < -100 || e.pos.x > k.width() + 100) {
-          e.active = false;
-          e.hidden = true;
-          e.paused = true;
-        }
-      });
-      enemyPool.push(e);
-    }
-    return e;
-  };
-
-  return function spawnEnemy(targetColor: any, speed: number, squadId: string, laneIndex: number, pos?: any, isElite: boolean = false) {
-    const e = getEnemy();
-    e.active = true;
-    e.hidden = false;
-    e.paused = false;
-    e.pos = pos ? k.vec2(pos) : k.vec2(k.width() + 50, k.rand(100, k.height() - 100));
+  spawn(x: number, y: number, color: number, squadId: string, laneIndex: number) {
+    this.setPosition(x, y);
+    this.setActive(true);
+    this.setVisible(true);
+    this.setStrokeStyle(2, 0xffffff);
     
-    e.color = targetColor;
-    e.speed = speed;
-    e.hp = 1;
-    e.maxHp = 1;
-    e.col = targetColor;
-    e.squadId = squadId;
-    e.isStalemated = false;
-    e.stalemateTarget = null;
-    e.isElite = isElite;
-    e.eliteTimer = 0;
-    e.eliteColorIdx = 0;
-    e.laneIndex = laneIndex;
-    
-    e.outline = { width: 2, color: k.WHITE };
-  };
+    this.col = color;
+    this.setFillStyle(color);
+    this.squadId = squadId;
+    this.laneIndex = laneIndex;
+    this.hasScored = false;
+    this.isStalemated = false;
+    this.stalemateTarget = null;
+  }
+
+  preUpdate(time: number, delta: number) {
+    if (!this.active) return;
+
+    if (!this.hasScored && this.x > SCREEN_WIDTH) {
+      this.hasScored = true;
+      this.scene.events.emit("friendlyScored", this.col);
+    }
+
+    if (this.isStalemated) {
+      if (this.stalemateTarget && !this.stalemateTarget.active) {
+        this.isStalemated = false;
+        this.stalemateTarget = null;
+      } else {
+        if (this.body) this.body.setVelocity(0, 0);
+        return;
+      }
+    }
+
+    // Logic for finding target (will be handled by GameScene to avoid redundant searches)
+    this.scene.events.emit("friendlyUpdate", this);
+
+    if (this.x > SCREEN_WIDTH + 100 || this.x < -100 || this.y > SCREEN_HEIGHT + 100 || this.y < -100) {
+      this.deactivate();
+    }
+  }
+
+  deactivate() {
+    this.setActive(false);
+    this.setVisible(false);
+    if (this.body && 'setVelocity' in this.body) {
+      this.body.setVelocity(0, 0);
+    }
+  }
 }
 
-export function spawnItem(k: any, pos: any, type: "bomb" | "health" | "rage", targetPos: any, onCollect: () => void) {
+export function spawnItem(scene: Phaser.Scene, x: number, y: number, type: "bomb" | "health" | "rage", target: Phaser.GameObjects.Components.Transform, onCollect: () => void) {
   const colors = {
-    bomb: k.rgb(255, 50, 50),
-    health: k.rgb(50, 255, 50),
-    rage: k.rgb(255, 100, 255)
+    bomb: 0xff3232,
+    health: 0x32ff32,
+    rage: 0xff64ff
   };
 
   const texts = {
@@ -262,48 +224,42 @@ export function spawnItem(k: any, pos: any, type: "bomb" | "health" | "rage", ta
     rage: "RAGE"
   };
 
-  const item = k.add([
-    k.rect(40, 40),
-    k.pos(pos),
-    k.color(colors[type]),
-    k.outline(3, k.WHITE),
-    k.anchor("center"),
-    k.area(),
-    k.z(50),
-    "item",
-    { type: type, originalY: pos.y, spawnTime: k.time(), collected: false }
-  ]);
+  const container = scene.add.container(x, y);
+  const rect = scene.add.rectangle(0, 0, 40, 40, colors[type]).setStrokeStyle(3, 0xffffff);
+  const text = scene.add.text(0, 0, texts[type], { fontSize: "12px", color: "#000000" }).setOrigin(0.5);
+  
+  container.add([rect, text]);
+  
+  let collected = false;
+  let spawnTime = scene.time.now;
 
-  item.add([
-    k.text(texts[type], { size: 12 }),
-    k.anchor("center"),
-    k.color(0, 0, 0),
-  ]);
+  scene.events.on("update", (time: number, delta: number) => {
+    if (collected || !container.active) return;
 
-  item.onUpdate(() => {
-    if (item.collected) return;
-
-    const age = k.time() - item.spawnTime;
+    const age = (time - spawnTime) / 1000;
     
     if (age < 0.5) {
-      // Initial drift
-      item.move(-40, Math.sin(age * 10) * 20);
+      container.x -= 40 * (delta / 1000);
+      container.y += Math.sin(age * 10) * 2;
     } else {
-      // Absorb towards target
-      const dir = targetPos.sub(item.pos).unit();
-      const dist = targetPos.dist(item.pos);
+      const dx = target.x - container.x;
+      const dy = target.y - container.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
       
-      // Accelerate as it gets closer
-      const speed = k.map(dist, 0, k.width(), 800, 200);
-      item.move(dir.scale(speed));
+      const speed = Phaser.Math.Linear(800, 200, dist / SCREEN_WIDTH);
+      const vx = (dx / dist) * speed;
+      const vy = (dy / dist) * speed;
+      
+      container.x += vx * (delta / 1000);
+      container.y += vy * (delta / 1000);
 
       if (dist < 20) {
-        item.collected = true;
+        collected = true;
         onCollect();
-        k.destroy(item);
+        container.destroy();
       }
     }
 
-    if (item.pos.x < -100) k.destroy(item);
+    if (container.x < -100) container.destroy();
   });
 }
