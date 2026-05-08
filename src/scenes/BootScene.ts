@@ -12,6 +12,13 @@ export class BootScene extends Phaser.Scene {
     this.load.audio("laserShoot", "/src/sfx/laserShoot.wav");
     this.load.audio("laserShootFailed", "/src/sfx/laserShootFailed.wav");
     this.load.audio("playerHurt", "/src/sfx/playerHurt.wav");
+
+    // Load background
+    this.load.image("bg_notebook", "/src/assets/bg/bg_main_notebook.png");
+
+    // Load UI assets
+    this.load.image("ui_health_bar_frame", "/src/assets/ui/ui_health_bar_frame.png");
+    this.load.image("ui_health_bar_fill", "/src/assets/ui/ui_health_bar_fill.png");
   }
 
   create() {

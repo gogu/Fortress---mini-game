@@ -92,7 +92,6 @@ export class ResultScene extends Phaser.Scene {
       this.cameras.main.fade(500, 0, 0, 0);
       this.cameras.main.once("camerafadeoutcomplete", () => {
         this.scene.start("GameScene");
-        this.scene.start("UIScene");
       });
     });
 

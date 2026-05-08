@@ -60,30 +60,12 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     // Background
-    this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x05050a).setOrigin(0).setDepth(0);
+    this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0xefeadc).setOrigin(0).setDepth(0); // Paper-like base color
+    this.add.image(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "bg_notebook")
+      .setDisplaySize(SCREEN_WIDTH, SCREEN_HEIGHT)
+      .setDepth(0)
+      .setAlpha(0.9); // Slight alpha to let the base color blend if there are minor gaps
     
-    // Draw lanes visualization
-    const laneHeight = 80;
-    LANES.forEach((y, index) => {
-      // Lane background track
-      this.add.rectangle(SCREEN_WIDTH / 2, y, SCREEN_WIDTH, laneHeight, 0xffffff, 0.03).setOrigin(0.5);
-      
-      // Lane center dashed-like guide
-      this.add.grid(SCREEN_WIDTH / 2, y, SCREEN_WIDTH, 2, 40, 40, 0xffffff, 0.05).setOrigin(0.5);
-      
-      // Boundary lines (drawn above and below the lane)
-      const topBound = y - laneHeight / 2;
-      const bottomBound = y + laneHeight / 2;
-      
-      this.add.line(0, 0, 0, topBound, SCREEN_WIDTH, topBound, 0x444466, 0.2).setOrigin(0).setLineWidth(1);
-      if (index === LANES.length - 1) {
-        this.add.line(0, 0, 0, bottomBound, SCREEN_WIDTH, bottomBound, 0x444466, 0.2).setOrigin(0).setLineWidth(1);
-      }
-      
-      // Lane indicators (optional text pointers for clarify)
-      this.add.text(10, y, `L${index + 1}`, { fontSize: '10px', color: '#444466' }).setOrigin(0, 0.5).setAlpha(0.5);
-    });
-
     // Initialize Groups
     this.bullets = this.physics.add.group({
       classType: Bullet,
@@ -166,10 +148,6 @@ export class GameScene extends Phaser.Scene {
       this.handleBulletEnemyCollision(b as Bullet, e as Enemy);
     });
 
-    this.physics.add.overlap(this.enemies, this.fortress, (e, f) => {
-      this.handleEnemyFortressCollision(e, f);
-    });
-
     this.physics.add.overlap(this.friendlies, this.enemies, (f, e) => {
       this.handleFriendlyEnemyCollision(f as Friendly, e as Enemy);
     });
@@ -226,8 +204,13 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.events.on("shutdown", () => {
-      this.events.removeAllListeners();
+      // Phaser handles scene event cleanup; manually removing all listeners can interfere with internal plugins like physics
     });
+
+    // Ensure UI is running
+    if (!this.scene.isActive("UIScene")) {
+      this.scene.launch("UIScene");
+    }
   }
 
   update(time: number, delta: number) {
@@ -268,6 +251,36 @@ export class GameScene extends Phaser.Scene {
 
     checkWipe(activeFriendlies, activeEnemies);
     checkWipe(activeEnemies, activeFriendlies);
+
+    // Boundary check for enemies crossing the left edge
+    activeEnemies.forEach(e => {
+      if (e.active && e.x < 0) {
+        this.handleEnemyPassBoundary(e);
+      }
+    });
+  }
+
+  private handleEnemyPassBoundary(enemy: Enemy) {
+    enemy.deactivate();
+    this.updateCombo(0);
+    this.cameras.main.shake(100, 0.01);
+
+    const now = this.time.now;
+    if (now > this.lastHurtTime + 200) {
+      this.health -= 10;
+      this.lastHurtTime = now;
+      this.sound.play("playerHurt", { volume: 0.7 });
+      this.events.emit("updateHealth", this.health);
+      
+      if (this.health <= 0) {
+        this.scene.stop("UIScene");
+        this.scene.start("ResultScene", { 
+          isVictory: false, 
+          gold: this.gold, 
+          successCounts: this.successCounts 
+        });
+      }
+    }
   }
 
   private handleLeftClick(pointer: Phaser.Input.Pointer) {
