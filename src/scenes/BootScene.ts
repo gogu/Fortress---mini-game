@@ -16,9 +16,15 @@ export class BootScene extends Phaser.Scene {
     // Load background
     this.load.image("bg_notebook", "/src/assets/bg/bg_main_notebook.png");
 
+    // Load building assets
+    this.load.image("bldg_fortress", "/src/assets/buildings/bldg_fortress.png");
+    this.load.image("bldg_cannon_barrel", "/src/assets/buildings/bldg_cannon_barrel.png");
+    this.load.image("bldg_barracks", "/src/assets/buildings/bldg_barracks.png");
+
     // Load UI assets
     this.load.image("ui_health_bar_frame", "/src/assets/ui/ui_health_bar_frame.png");
     this.load.image("ui_health_bar_fill", "/src/assets/ui/ui_health_bar_fill.png");
+    this.load.image("ui_icon_coin", "/src/assets/ui/ui_icon_coin.png");
   }
 
   create() {

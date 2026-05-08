@@ -9,17 +9,14 @@
 
 ## 📂 /bg (背景图相关)
 *需具有陈旧纸张或横格本纹理。需要预留充足的 Safe Area 以适应宽屏或平板屏幕比例。*
-- [ ] `bg_main_notebook.png` - 主战场背景底图 (建议尺寸 1920x1080 级别)
+- [x] `bg_main_notebook.png` - 主战场背景底图 (建议尺寸 1920x1080 级别)
 
 ## 📂 /buildings (建筑与场景)
 *具有黑色粗线框的手绘涂鸦风格。*
-- [ ] `bldg_fortress.png` - 堡垒主体
-- [ ] `bldg_cannon_base.png` - 堡垒上方的大炮底座
-- [ ] `bldg_cannon_barrel.png` - 大炮炮管（可包含火柴人炮手）
+- [x] `bldg_fortress.png` - 堡垒主体
+- [x] `bldg_cannon_barrel.png` - 大炮炮管
 - [ ] `bldg_cannon_indicator_cyan.png` - 大炮当前武器指示器 (青色发光或旗帜)
-- [ ] `bldg_cannon_indicator_orange.png` - 大炮当前武器指示器 (橙色)
-- [ ] `bldg_cannon_indicator_purple.png` - 大炮当前武器指示器 (紫色)
-- [ ] `bldg_barracks.png` - 兵营建筑（手绘帐篷或机械工厂，纯场景展示）
+- [x] `bldg_barracks.png` - 兵营建筑（手绘帐篷或机械工厂，纯场景展示）
 
 ## 📂 /units (角色与单位)
 *豆豆眼火柴人设计。约 30x30 视觉大小，建议 8~12 FPS 序列帧。带有 `01` 代表序列帧动画第一帧。*
@@ -66,12 +63,6 @@
 - [ ] `fx_struggle_sweat_01.png` ~ `..._xx.png` - 兵种交战特效（汗滴）
 
 ## 📂 /ui (界面元素、图标与按钮)
-*触屏逻辑设计。按钮需提供分离的三个状态切图，不能有悬停(Hover)特效。*
-
-**武器切换大按钮：**
-- [ ] `ui_btn_weapon_cyan_normal.png` / `_pressed.png` / `_active.png` - 青色切换（Active 状态需极其突出）
-- [ ] `ui_btn_weapon_orange_normal.png` / `_pressed.png` / `_active.png` - 橙色切换
-- [ ] `ui_btn_weapon_purple_normal.png` / `_pressed.png` / `_active.png` - 紫色切换
 
 **技能/道具大按钮 (如炸弹)：**
 - [ ] `ui_btn_bomb_normal.png`
@@ -79,7 +70,7 @@
 - [ ] `ui_btn_bomb_cooldown.png` - CD 中 / 不可用状态（灰化/遮罩）
 
 **顶部状态栏与通用面板：**
-- [ ] `ui_hud_health_empty.png` - 空血红心底框
+- [x] `ui_hud_health_empty.png` - 空血红心底框
 - [ ] `ui_icon_coin.png` - 金币小图标
 - [ ] `ui_panel_bg_9slice.png` - 通用 UI 弹窗底板（带不规则边缘的黑板/木板/褶皱牛皮纸，必须支持引擎 9-slice 九宫格拉伸，四角清晰）
 - [ ] **[建议附加]** 一款用于显示 Combo 和分数的独立风格手写字体 (`.ttf` 或 `.woff` 格式)。

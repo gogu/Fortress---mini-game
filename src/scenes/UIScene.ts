@@ -1,8 +1,9 @@
 import Phaser from "phaser";
-import { SCREEN_WIDTH, WIN_CONDITION } from "../constants";
+import { SCREEN_WIDTH, SCREEN_HEIGHT, WIN_CONDITION } from "../constants";
 
 export class UIScene extends Phaser.Scene {
   private goldLabel!: Phaser.GameObjects.Text;
+  private goldIcon!: Phaser.GameObjects.Image;
   private successLabel!: Phaser.GameObjects.Text;
   private comboLabel!: Phaser.GameObjects.Text;
   private bombLabel!: Phaser.GameObjects.Text;
@@ -10,8 +11,6 @@ export class UIScene extends Phaser.Scene {
   private fpsLabel!: Phaser.GameObjects.Text;
   private sequenceSlots: Phaser.GameObjects.Rectangle[] = [];
 
-  private ratioLabel!: Phaser.GameObjects.Text;
-  
   // Health Bar components
   private healthFillImage!: Phaser.GameObjects.Image;
   private healthMaskShape!: Phaser.GameObjects.Graphics;
@@ -37,12 +36,24 @@ export class UIScene extends Phaser.Scene {
   }
 
   private createTopBar() {
-    this.goldLabel = this.add.text(SCREEN_WIDTH / 2, 35, "GOLD: 0", { fontSize: "24px", color: "#8b4513" }).setOrigin(0.5);
-    this.successLabel = this.add.text(SCREEN_WIDTH / 2, 60, `PROGRESS: R 0/${WIN_CONDITION} | G 0/${WIN_CONDITION} | B 0/${WIN_CONDITION}`, { fontSize: "14px", color: "#444444" }).setOrigin(0.5);
-    this.comboLabel = this.add.text(SCREEN_WIDTH / 2, 100, "COMBO: 0", { fontSize: "36px", color: "#333333" }).setOrigin(0.5).setAlpha(0);
-    this.bombLabel = this.add.text(SCREEN_WIDTH - 20, 50, "BOMBS: 0/2", { fontSize: "16px", color: "#8b0000" }).setOrigin(1, 0);
-    this.rageLabel = this.add.text(SCREEN_WIDTH - 20, 75, "RAGE: 0s", { fontSize: "16px", color: "#4b0082" }).setOrigin(1, 0).setAlpha(0);
-    this.fpsLabel = this.add.text(SCREEN_WIDTH - 20, 20, "FPS: 0", { fontSize: "14px", color: "#2f4f4f" }).setOrigin(1, 0);
+    // Top Right: Gold [Icon][Number]
+    this.goldIcon = this.add.image(SCREEN_WIDTH - 120, 65, "ui_icon_coin").setOrigin(0, 0.5).setScale(0.3);
+    this.goldLabel = this.add.text(this.goldIcon.x + this.goldIcon.displayWidth + 5, 65, "0", { 
+      fontSize: "22px", 
+      color: "#8b4513",
+      fontStyle: "bold"
+    }).setOrigin(0, 0.5);
+
+    // Center: Progress & Combo
+    this.successLabel = this.add.text(SCREEN_WIDTH / 2, 35, `PROGRESS: R 0/${WIN_CONDITION} | G 0/${WIN_CONDITION} | B 0/${WIN_CONDITION}`, { fontSize: "14px", color: "#444444" }).setOrigin(0.5);
+    this.comboLabel = this.add.text(SCREEN_WIDTH / 2, 80, "COMBO: 0", { fontSize: "32px", color: "#333333" }).setOrigin(0.5).setAlpha(0);
+    
+    // Right Side: Items (shifted down to avoid gold)
+    this.bombLabel = this.add.text(SCREEN_WIDTH - 20, 70, "BOMBS: 0/2", { fontSize: "16px", color: "#8b0000" }).setOrigin(1, 0);
+    this.rageLabel = this.add.text(SCREEN_WIDTH - 20, 95, "RAGE: 0s", { fontSize: "16px", color: "#4b0082" }).setOrigin(1, 0).setAlpha(0);
+    
+    // Bottom Left: FPS
+    this.fpsLabel = this.add.text(20, SCREEN_HEIGHT - 20, "FPS: 0", { fontSize: "14px", color: "#2f4f4f" }).setOrigin(0, 1);
   }
 
   private createHealthBar() {
@@ -80,8 +91,6 @@ export class UIScene extends Phaser.Scene {
   }
 
   private createIndicators() {
-    this.ratioLabel = this.add.text(50, 150, "1 : 1 : 1", { fontSize: "12px", color: "#444444" }).setOrigin(0.5);
-
     for (let i = 0; i < 3; i++) {
       const slot = this.add.rectangle(SCREEN_WIDTH - 20 - (2 - i) * 18, 110, 12, 12, 0x323232)
         .setOrigin(1, 0)
@@ -95,8 +104,6 @@ export class UIScene extends Phaser.Scene {
     const gameScene = this.scene.get("GameScene");
 
     gameScene.events.on("updateHealth", this.onUpdateHealth, this);
-    gameScene.events.on("updateRatios", this.onUpdateRatios, this);
-    gameScene.events.on("updateBarracksPos", this.onUpdateBarracksPos, this);
     gameScene.events.on("updateGold", this.onUpdateGold, this);
     gameScene.events.on("updateSuccess", this.onUpdateSuccess, this);
     gameScene.events.on("updateCombo", this.onUpdateCombo, this);
@@ -107,8 +114,6 @@ export class UIScene extends Phaser.Scene {
 
     this.events.on("shutdown", () => {
       gameScene.events.off("updateHealth", this.onUpdateHealth, this);
-      gameScene.events.off("updateRatios", this.onUpdateRatios, this);
-      gameScene.events.off("updateBarracksPos", this.onUpdateBarracksPos, this);
       gameScene.events.off("updateGold", this.onUpdateGold, this);
       gameScene.events.off("updateSuccess", this.onUpdateSuccess, this);
       gameScene.events.off("updateCombo", this.onUpdateCombo, this);
@@ -129,28 +134,18 @@ export class UIScene extends Phaser.Scene {
     this.healthText.setText(`${Math.max(0, Math.floor(health))}/100`);
   }
 
-  private onUpdateRatios(ratios: number[]) {
-    this.ratioLabel.setText(`${ratios[0]} : ${ratios[1]} : ${ratios[2]}`);
-  }
-  
-  private onUpdateBarracksPos(x: number, y: number) {
-    this.ratioLabel.setPosition(x, y - 50);
-  }
-
   private onUpdateGold(gold: number) {
-    this.goldLabel.setText(`GOLD: ${gold}`);
-    this.tweens.add({ targets: this.goldLabel, scale: 1.2, duration: 100, yoyo: true });
+    this.goldLabel.setText(`${gold}`);
+    // No animations, static update
   }
 
   private onUpdateSuccess(counts: number[]) {
     this.successLabel.setText(`PROGRESS: R ${counts[0]}/${WIN_CONDITION} | G ${counts[1]}/${WIN_CONDITION} | B ${counts[2]}/${WIN_CONDITION}`);
-    this.tweens.add({ targets: this.successLabel, scale: 1.1, duration: 100, yoyo: true });
   }
 
   private onUpdateCombo(combo: number) {
     if (combo > 0) {
       this.comboLabel.setText(`COMBO: ${combo}`).setAlpha(0.5);
-      this.tweens.add({ targets: this.comboLabel, scale: 1.1, duration: 50, yoyo: true });
     } else {
       this.comboLabel.setAlpha(0);
     }
