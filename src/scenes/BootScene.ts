@@ -33,6 +33,37 @@ export class BootScene extends Phaser.Scene {
     this.load.image("item_drop_bomb", "/src/assets/items/item_drop_bomb.png");
     this.load.image("item_drop_health", "/src/assets/items/item_drop_health.png");
     this.load.image("item_drop_rage", "/src/assets/items/item_drop_rage.png");
+
+    // Load Unit assets
+    this.load.spritesheet("friend_cyan", "/src/assets/units/friend_cyan.png", {
+      frameWidth: 768,
+      frameHeight: 512
+    });
+    this.load.spritesheet("friend_orange", "/src/assets/units/friend_orange.png", {
+      frameWidth: 768,
+      frameHeight: 512
+    });
+    this.load.spritesheet("friend_purple", "/src/assets/units/friend_purple.png", {
+      frameWidth: 768,
+      frameHeight: 512
+    });
+
+    this.load.spritesheet("enemy_cyan", "/src/assets/units/enemy_cyan.png", {
+      frameWidth: 768,
+      frameHeight: 512
+    });
+    this.load.spritesheet("enemy_orange", "/src/assets/units/enemy_orange.png", {
+      frameWidth: 768,
+      frameHeight: 512
+    });
+    this.load.spritesheet("enemy_purple", "/src/assets/units/enemy_purple.png", {
+      frameWidth: 768,
+      frameHeight: 512
+    });
+    this.load.spritesheet("enemy_elite", "/src/assets/units/enemy_elite.png", {
+      frameWidth: 768,
+      frameHeight: 512
+    });
   }
 
   create() {

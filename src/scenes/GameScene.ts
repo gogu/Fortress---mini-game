@@ -59,6 +59,66 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // Create Animations
+    if (!this.anims.exists("friend_cyan_walk")) {
+      this.anims.create({
+        key: "friend_cyan_walk",
+        frames: this.anims.generateFrameNumbers("friend_cyan", { start: 0, end: 6 }),
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists("friend_orange_walk")) {
+      this.anims.create({
+        key: "friend_orange_walk",
+        frames: this.anims.generateFrameNumbers("friend_orange", { start: 0, end: 5 }),
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists("friend_purple_walk")) {
+      this.anims.create({
+        key: "friend_purple_walk",
+        frames: this.anims.generateFrameNumbers("friend_purple", { start: 0, end: 7 }),
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+
+    // Enemy Animations
+    if (!this.anims.exists("enemy_cyan_walk")) {
+      this.anims.create({
+        key: "enemy_cyan_walk",
+        frames: this.anims.generateFrameNumbers("enemy_cyan", { start: 0, end: 8 }), // 9 frames
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists("enemy_orange_walk")) {
+      this.anims.create({
+        key: "enemy_orange_walk",
+        frames: this.anims.generateFrameNumbers("enemy_orange", { start: 0, end: 6 }), // 7 frames
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists("enemy_purple_walk")) {
+      this.anims.create({
+        key: "enemy_purple_walk",
+        frames: this.anims.generateFrameNumbers("enemy_purple", { start: 0, end: 5 }), // 6 frames
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists("enemy_elite_walk")) {
+      this.anims.create({
+        key: "enemy_elite_walk",
+        frames: this.anims.generateFrameNumbers("enemy_elite", { start: 0, end: 8 }), // 9 frames
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+
     this.setupBackground();
     this.setupGroups();
     this.setupBuildings();
@@ -402,11 +462,26 @@ export class GameScene extends Phaser.Scene {
     this.stalematedPairs.add(pairKey);
 
     if (enemy.isElite) {
-      friendly.isStalemated = true;
+      // Elite kills entire squad rapidly
+      const fSquad = (this.friendlies.getChildren() as Friendly[]).filter(u => u.active && u.squadId === friendly.squadId);
+      
+      fSquad.forEach((member, index) => {
+        this.time.delayedCall(index * 100, () => {
+          if (member.active) {
+            spawnParticles(this, member.x, member.y, member.col);
+            member.deactivate();
+          }
+        });
+      });
+      
+      // Elite briefly pauses then continues
       enemy.isStalemated = true;
-      this.time.delayedCall(100, () => {
-        if (friendly.active) friendly.deactivate();
-        if (enemy.active) { enemy.isStalemated = false; enemy.body.setVelocity(-enemy.speed, 0); }
+      if (enemy.body) enemy.body.setVelocity(0, 0);
+      this.time.delayedCall(200, () => {
+        if (enemy.active) {
+          enemy.isStalemated = false;
+          if (enemy.body) enemy.body.setVelocity(-enemy.speed, 0);
+        }
       });
       return;
     }
@@ -524,12 +599,42 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
+    let vx = 0;
+    let vy = 0;
+
     if (target) {
       const angle = Phaser.Math.Angle.Between(f.x, f.y, (target as Enemy).x, (target as Enemy).y);
-      this.physics.velocityFromRotation(angle, FRIENDLY_SPEED, f.body.velocity);
+      const vec = this.physics.velocityFromRotation(angle, FRIENDLY_SPEED);
+      vx = vec.x;
+      vy = vec.y;
     } else {
-      f.body.setVelocity(FRIENDLY_SPEED, (LANES[f.laneIndex] - f.y) * 2);
+      vx = FRIENDLY_SPEED;
+      vy = (LANES[f.laneIndex] - f.y) * 2;
     }
+
+    // Separation Logic
+    const separationRadius = 30;
+    const separationForce = 50;
+    let sepX = 0;
+    let sepY = 0;
+
+    this.friendlies.getChildren().forEach(obj => {
+      const other = obj as Friendly;
+      if (other !== f && other.active && !other.isStalemated && f.laneIndex === other.laneIndex) {
+        const dist = Phaser.Math.Distance.Between(f.x, f.y, other.x, other.y);
+        if (dist > 0 && dist < separationRadius) {
+          const pushX = f.x - other.x;
+          const pushY = f.y - other.y;
+          // Normalize and scale by how close they are
+          const len = Math.sqrt(pushX * pushX + pushY * pushY);
+          const weight = 1 - (dist / separationRadius);
+          sepX += (pushX / len) * separationForce * weight;
+          sepY += (pushY / len) * separationForce * weight;
+        }
+      }
+    });
+
+    f.body.setVelocity(vx + sepX, vy + sepY);
   }
 
   private updateGold(val: number) {

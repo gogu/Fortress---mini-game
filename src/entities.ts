@@ -55,7 +55,7 @@ export class Bullet extends Phaser.GameObjects.Rectangle {
   }
 }
 
-export class Enemy extends Phaser.GameObjects.Rectangle {
+export class Enemy extends Phaser.GameObjects.Sprite {
   declare body: Phaser.Physics.Arcade.Body;
   public hp: number = 1;
   public maxHp: number = 1;
@@ -71,11 +71,27 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   public laneIndex: number = 0;
 
   private eliteColors = [0x00f2ff, 0xff8c00, 0xa020f0];
+  private eliteGlow: any = null;
+  private eliteParticles: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
 
   constructor(scene: Phaser.Scene) {
-    super(scene, 0, 0, 30, 30, 0xffffff);
+    super(scene, 0, 0, "white-pixel");
     scene.add.existing(this);
     scene.physics.add.existing(this);
+
+    // Pre-create particle emitter for elites (hidden by default)
+    this.eliteParticles = scene.add.particles(0, 0, "white-pixel", {
+      scale: { start: 5, end: 0 },
+      alpha: { start: 0.8, end: 0 },
+      speed: { min: 10, max: 30 },
+      angle: { min: 0, max: 360 },
+      lifespan: 1000,
+      frequency: 30,
+      gravityY: -150, // Flames go up
+      blendMode: 'ADD',
+      emitting: false
+    });
+    this.eliteParticles.setDepth(this.depth - 1);
   }
 
   spawn(x: number, y: number, color: number, speed: number, squadId: string, laneIndex: number, isElite: boolean) {
@@ -92,22 +108,87 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
     this.eliteTimer = 0;
     this.isStalemated = false;
     this.stalemateTarget = null;
-
-    this.setFillStyle(color);
-    this.setStrokeStyle(2, 0xffffff);
     
+    // Clear rotation and tint first
+    this.setRotation(0);
+    this.setTint(0xffffff);
+
     if (isElite) {
-      this.setRotation(Math.PI / 4); // Rotate for elite look
+      this.setScale(0.24); // 200% size
+      this.setTexture("enemy_elite");
+      this.play("enemy_elite_walk", true);
+      this.hp = 3; // Elites have more HP
+
+      // Randomize initial color
+      this.eliteColorIdx = Phaser.Math.Between(0, 2);
+      const initialColor = this.eliteColors[this.eliteColorIdx];
+      this.col = initialColor;
+
+      // Add Glow if not already present
+      if (this.postFX && !this.eliteGlow) {
+        this.eliteGlow = this.postFX.addGlow(initialColor, 4, 0, false, 0.1, 10);
+      } else if (this.eliteGlow) {
+        this.eliteGlow.color = initialColor;
+      }
+
+      // Start Particles
+      if (this.eliteParticles) {
+        this.eliteParticles.setDepth(this.depth - 1);
+        this.eliteParticles.startFollow(this);
+        this.eliteParticles.start();
+        this.eliteParticles.setParticleTint(initialColor);
+      }
     } else {
-      this.setRotation(0);
+      this.setScale(0.12);
+      if (this.postFX && this.eliteGlow) {
+        this.postFX.remove(this.eliteGlow);
+        this.eliteGlow = null;
+      }
+      if (this.eliteParticles) {
+        this.eliteParticles.stop();
+      }
+
+      if (color === 0x00f2ff) {
+        this.setTexture("enemy_cyan");
+        this.play("enemy_cyan_walk", true);
+      } else if (color === 0xff8c00) {
+        this.setTexture("enemy_orange");
+        this.play("enemy_orange_walk", true);
+      } else if (color === 0xa020f0) {
+        this.setTexture("enemy_purple");
+        this.play("enemy_purple_walk", true);
+      } else {
+        this.setTexture("white-pixel");
+        this.setDisplaySize(30, 30);
+        this.setTint(color);
+        this.stop();
+      }
     }
 
     if (this.body) {
+      // Set hitbox appropriately based on texture and scale.
+      if (this.texture.key !== "white-pixel") {
+        if (isElite) {
+          // Scaled by 0.24. Texture is 768x512.
+          // We want the hit box to cover the character properly.
+          // Let's use an unscaled size that fits the sprite tightly.
+          (this.body as Phaser.Physics.Arcade.Body).setSize(200, 250);
+          (this.body as Phaser.Physics.Arcade.Body).setOffset(284, 131);
+        } else {
+          // Scaled by 0.12. 
+          (this.body as Phaser.Physics.Arcade.Body).setSize(300, 300);
+          (this.body as Phaser.Physics.Arcade.Body).setOffset(234, 106);
+        }
+      } else {
+        (this.body as Phaser.Physics.Arcade.Body).setSize(30, 30);
+        (this.body as Phaser.Physics.Arcade.Body).setOffset(0, 0);
+      }
       this.body.setVelocity(-speed, 0);
     }
   }
 
   preUpdate(time: number, delta: number) {
+    super.preUpdate(time, delta);
     if (!this.active) return;
 
     if (this.isElite) {
@@ -117,7 +198,14 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
         this.eliteColorIdx = (this.eliteColorIdx + 1) % 3;
         const newCol = this.eliteColors[this.eliteColorIdx];
         this.col = newCol;
-        this.setFillStyle(newCol);
+        
+        // Update visual effects instead of tint
+        if (this.eliteGlow) {
+          this.eliteGlow.color = newCol;
+        }
+        if (this.eliteParticles) {
+          this.eliteParticles.setParticleTint(newCol);
+        }
       }
     }
 
@@ -140,13 +228,16 @@ export class Enemy extends Phaser.GameObjects.Rectangle {
   deactivate() {
     this.setActive(false);
     this.setVisible(false);
+    if (this.eliteParticles) {
+      this.eliteParticles.stop();
+    }
     if (this.body && 'setVelocity' in this.body) {
       this.body.setVelocity(0, 0);
     }
   }
 }
 
-export class Friendly extends Phaser.GameObjects.Arc {
+export class Friendly extends Phaser.GameObjects.Sprite {
   declare body: Phaser.Physics.Arcade.Body;
   public col: number = 0xffffff;
   public squadId: string = "";
@@ -157,7 +248,7 @@ export class Friendly extends Phaser.GameObjects.Arc {
   public laneIndex: number = 0;
 
   constructor(scene: Phaser.Scene) {
-    super(scene, 0, 0, 15, 0, 360, false, 0xffffff);
+    super(scene, 0, 0, "white-pixel");
     scene.add.existing(this);
     scene.physics.add.existing(this);
   }
@@ -166,18 +257,50 @@ export class Friendly extends Phaser.GameObjects.Arc {
     this.setPosition(x, y);
     this.setActive(true);
     this.setVisible(true);
-    this.setStrokeStyle(2, 0xffffff);
     
     this.col = color;
-    this.setFillStyle(color);
     this.squadId = squadId;
     this.laneIndex = laneIndex;
     this.hasScored = false;
     this.isStalemated = false;
     this.stalemateTarget = null;
+
+    // Specific animation and scaling based on color
+    if (color === 0x00f2ff) {
+      this.setTexture("friend_cyan");
+      this.setScale(0.12);
+      this.play("friend_cyan_walk", true);
+      this.setTint(0xffffff);
+    } else if (color === 0xff8c00) {
+      this.setTexture("friend_orange");
+      this.setScale(0.12);
+      this.play("friend_orange_walk", true);
+      this.setTint(0xffffff);
+    } else if (color === 0xa020f0) {
+      this.setTexture("friend_purple");
+      this.setScale(0.12);
+      this.play("friend_purple_walk", true);
+      this.setTint(0xffffff);
+    } else {
+      this.setTexture("white-pixel");
+      this.setDisplaySize(30, 30);
+      this.setTint(color);
+      this.stop();
+    }
+
+    if (this.body) {
+      if (this.texture.key !== "white-pixel") {
+        (this.body as Phaser.Physics.Arcade.Body).setSize(300, 300);
+        (this.body as Phaser.Physics.Arcade.Body).setOffset(234, 106);
+      } else {
+        (this.body as Phaser.Physics.Arcade.Body).setSize(30, 30);
+        (this.body as Phaser.Physics.Arcade.Body).setOffset(0, 0);
+      }
+    }
   }
 
   preUpdate(time: number, delta: number) {
+    super.preUpdate(time, delta);
     if (!this.active) return;
 
     if (!this.hasScored && this.x > SCREEN_WIDTH) {
