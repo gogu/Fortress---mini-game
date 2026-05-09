@@ -22,4 +22,6 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, GameScene, UIScene, ResultScene],
 };
 
-new Phaser.Game(config);
+document.fonts.ready.then(() => {
+  new Phaser.Game(config);
+});

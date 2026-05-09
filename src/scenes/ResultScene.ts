@@ -24,7 +24,7 @@ export class ResultScene extends Phaser.Scene {
     // Title
     const title = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 150, titleText, {
       fontSize: "48px",
-      fontFamily: "'Courier New', Courier, monospace",
+      fontFamily: "WuXin",
       color: titleColor,
       stroke: "#000",
       strokeThickness: 8,
@@ -44,13 +44,14 @@ export class ResultScene extends Phaser.Scene {
     const statsContainer = this.add.container(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
     
     const goldText = this.add.text(0, -40, `TOTAL GOLD: ${gold}`, {
+      fontFamily: "WuXin",
       fontSize: "24px",
       color: "#ffd700"
     }).setOrigin(0.5);
 
     const progressText = this.add.text(0, 0, 
       `RED: ${successCounts[0]} | GREEN: ${successCounts[1]} | BLUE: ${successCounts[2]}`, 
-      { fontSize: "18px", color: "#c8c8c8" }
+      { fontFamily: "WuXin", fontSize: "18px", color: "#c8c8c8" }
     ).setOrigin(0.5);
 
     statsContainer.add([goldText, progressText]);
@@ -70,6 +71,7 @@ export class ResultScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     
     const btnText = this.add.text(0, 100, "PLAY AGAIN", {
+      fontFamily: "WuXin",
       fontSize: "24px",
       color: "#ffffff"
     }).setOrigin(0.5);

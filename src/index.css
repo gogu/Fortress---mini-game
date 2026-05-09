@@ -1,10 +1,17 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'WuXin';
+  src: url('/src/assets/fonts/WuXinShouXieTi-2.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 body {
   margin: 0;
   padding: 0;
   background-color: #efeadc;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'WuXin', 'Courier New', Courier, monospace;
   color: #333;
   overflow: hidden;
 }

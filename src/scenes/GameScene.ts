@@ -11,7 +11,6 @@ export class GameScene extends Phaser.Scene {
   private health!: number;
   private combo!: number;
   private gold!: number;
-  private killSequence!: number[];
   private weaponMode!: number;
   private lastShotTime!: number;
   private lastHurtTime!: number;
@@ -47,7 +46,6 @@ export class GameScene extends Phaser.Scene {
     this.health = HEALTH_MAX;
     this.combo = 0;
     this.gold = 0;
-    this.killSequence = [];
     this.weaponMode = 0;
     this.lastShotTime = 0;
     this.lastHurtTime = 0;
@@ -171,6 +169,7 @@ export class GameScene extends Phaser.Scene {
     this.events.on("bulletMissed", () => this.updateCombo(0));
     this.events.on("friendlyScored", (color: number) => this.handleFriendlyScore(color));
     this.events.on("friendlyUpdate", (f: Friendly) => this.updateFriendlyAI(f));
+    this.events.on("requestBomb", () => this.useBomb());
   }
 
   private setupLoops() {
@@ -248,8 +247,11 @@ export class GameScene extends Phaser.Scene {
     
     // Popup Text
     const txt = this.add.text(this.fortress.x, this.fortress.y - 60, MODES[this.weaponMode].name, {
+      fontFamily: "WuXin",
       fontSize: "24px",
-      color: Phaser.Display.Color.IntegerToColor(MODES[this.weaponMode].color).rgba
+      color: Phaser.Display.Color.IntegerToColor(MODES[this.weaponMode].color).rgba,
+      stroke: "#ffffff",
+      strokeThickness: 4
     }).setOrigin(0.5);
     this.tweens.add({
       targets: txt,
@@ -469,13 +471,6 @@ export class GameScene extends Phaser.Scene {
       const type = Phaser.Utils.Array.GetRandom(["bomb", "health", "rage"]);
       spawnItem(this, enemy.x, enemy.y, type as any, this.fortress, () => this.handleItemCollect(type as any));
     }
-
-    this.killSequence.push(enemy.col);
-    this.events.emit("updateSequence", this.killSequence);
-    if (this.killSequence.length >= 3) {
-      this.time.delayedCall(500, () => { this.killSequence = []; this.events.emit("updateSequence", []); });
-      this.events.emit("sequenceFailure");
-    }
   }
 
   private handleItemCollect(type: "bomb" | "health" | "rage") {
@@ -544,12 +539,13 @@ export class GameScene extends Phaser.Scene {
 
   private updateCombo(val: number) {
     if (val > 0) {
-      this.combo += val;
-      if (this.combo % 10 === 0) this.updateGold(10);
+      if (this.combo < 99) {
+        this.combo += val;
+        if (this.combo > 99) this.combo = 99;
+        if (this.combo % 10 === 0) this.updateGold(10);
+      }
     } else {
       this.combo = 0;
-      this.killSequence = [];
-      this.events.emit("updateSequence", []);
     }
     this.events.emit("updateCombo", this.combo);
   }

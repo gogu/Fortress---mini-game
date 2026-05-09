@@ -65,9 +65,8 @@
 ## 📂 /ui (界面元素、图标与按钮)
 
 **技能/道具大按钮 (如炸弹)：**
-- [ ] `ui_btn_bomb_normal.png`
-- [ ] `ui_btn_bomb_pressed.png`
-- [ ] `ui_btn_bomb_cooldown.png` - CD 中 / 不可用状态（灰化/遮罩）
+- [x] `ui_btn_bomb_normal.png`
+- [x] `ui_btn_bomb_cooldown.png` - CD 中 / 不可用状态（灰化/遮罩）
 
 **顶部状态栏与通用面板：**
 - [x] `ui_hud_health_empty.png` - 空血红心底框
