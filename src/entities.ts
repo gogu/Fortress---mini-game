@@ -213,52 +213,66 @@ export class Friendly extends Phaser.GameObjects.Arc {
 }
 
 export function spawnItem(scene: Phaser.Scene, x: number, y: number, type: "bomb" | "health" | "rage", target: Phaser.GameObjects.Components.Transform, onCollect: () => void) {
-  const colors = {
-    bomb: 0xff3232,
-    health: 0x32ff32,
-    rage: 0xff64ff
-  };
-
-  const texts = {
-    bomb: "BOMB",
-    health: "HEAL",
-    rage: "RAGE"
-  };
-
   const container = scene.add.container(x, y);
-  const rect = scene.add.rectangle(0, 0, 40, 40, colors[type]).setStrokeStyle(3, 0xffffff);
-  const text = scene.add.text(0, 0, texts[type], { fontSize: "12px", color: "#000000" }).setOrigin(0.5);
   
-  container.add([rect, text]);
+  // Use the loaded images
+  const sprite = scene.add.image(0, 0, `item_drop_${type}`);
+  
+  // The images were resized to 256px height, so we scale them down to around 108px (previous 144 * 0.75)
+  const targetSize = 108;
+  const scale = targetSize / Math.max(sprite.width, sprite.height);
+  sprite.setScale(scale);
+  
+  // Add a rotating rainbow glow effect
+  let glow: any = null;
+  if (sprite.postFX) {
+    // Start with a default color, will be updated in the loop
+    glow = sprite.postFX.addGlow(0xffffff, 4, 0, false, 0.1, 16);
+  }
+  
+  container.add(sprite);
   
   let collected = false;
   let spawnTime = scene.time.now;
 
+  // Scale bounce tween (pulsing effect)
+  scene.tweens.add({
+    targets: sprite,
+    scaleX: scale * 1.2,
+    scaleY: scale * 1.2,
+    duration: 200,
+    yoyo: true,
+    repeat: 1 // Bounce twice
+  });
+
   scene.events.on("update", (time: number, delta: number) => {
     if (collected || !container.active) return;
 
-    const age = (time - spawnTime) / 1000;
+    // Update rainbow glow color
+    if (glow) {
+      const hue = (time / 2000) % 1; // Cycle through 0 to 1 every 2 seconds
+      const color = Phaser.Display.Color.HSVToRGB(hue, 0.8, 1);
+      glow.color = color.color;
+    }
     
-    if (age < 0.5) {
-      container.x -= 40 * (delta / 1000);
-      container.y += Math.sin(age * 10) * 2;
-    } else {
-      const dx = target.x - container.x;
-      const dy = target.y - container.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      const speed = Phaser.Math.Linear(800, 200, dist / SCREEN_WIDTH);
-      const vx = (dx / dist) * speed;
-      const vy = (dy / dist) * speed;
-      
-      container.x += vx * (delta / 1000);
-      container.y += vy * (delta / 1000);
+    // Absorbing logic with acceleration
+    const age = (time - spawnTime) / 1000;
+    const dx = target.x - container.x;
+    const dy = target.y - container.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    // Start slow (100) and accelerate rapidly based on how long it has been alive
+    const speed = 100 + (age * age * 1500); 
+    const vx = (dx / dist) * speed;
+    const vy = (dy / dist) * speed;
+    
+    container.x += vx * (delta / 1000);
+    container.y += vy * (delta / 1000);
 
-      if (dist < 20) {
-        collected = true;
-        onCollect();
-        container.destroy();
-      }
+    if (dist < 20) {
+      collected = true;
+      onCollect();
+      container.destroy();
     }
 
     if (container.x < -100) container.destroy();

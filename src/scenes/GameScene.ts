@@ -23,6 +23,10 @@ export class GameScene extends Phaser.Scene {
   private producedCounts!: number[];
   private stalematedPairs!: Set<string>;
   
+  // --- Cheat State ---
+  private eKeyCount: number = 0;
+  private eKeyLastTime: number = 0;
+  
   // --- Groups ---
   private bullets!: Phaser.Physics.Arcade.Group;
   private enemies!: Phaser.Physics.Arcade.Group;
@@ -138,13 +142,29 @@ export class GameScene extends Phaser.Scene {
 
     this.input.keyboard?.on("keydown-SPACE", () => this.switchMode());
     this.input.keyboard?.on("keydown-R", () => this.useBomb());
+    
+    // Cheat Code: Spawn Elite
+    this.input.keyboard?.on("keydown-E", () => {
+      const now = this.time.now;
+      if (now - this.eKeyLastTime > 500) {
+        this.eKeyCount = 1;
+      } else {
+        this.eKeyCount++;
+      }
+      this.eKeyLastTime = now;
+      
+      if (this.eKeyCount >= 3) {
+        this.spawnElite();
+        this.eKeyCount = 0;
+      }
+    });
   }
 
   private setupCollisions() {
     this.physics.add.overlap(this.bullets, this.enemies, (b, e) => this.handleBulletEnemyCollision(b as Bullet, e as Enemy));
     this.physics.add.overlap(this.friendlies, this.enemies, (f, e) => this.handleFriendlyEnemyCollision(f as Friendly, e as Enemy));
     // Fortress/Barracks collision with enemies
-    this.physics.add.overlap(this.enemies, [this.fortress, this.barracks], (e) => this.handleEnemyBuildingCollision(e as Enemy));
+    this.physics.add.overlap(this.enemies, [this.fortress, this.barracks], (obj1, obj2) => this.handleEnemyBuildingCollision(obj1 as any, obj2 as any));
   }
 
   private setupEventHandlers() {
@@ -365,8 +385,9 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private handleEnemyBuildingCollision(enemy: Enemy) {
-    if (!enemy.active) return;
+  private handleEnemyBuildingCollision(obj1: Phaser.GameObjects.GameObject, obj2: Phaser.GameObjects.GameObject) {
+    const enemy = (obj1 instanceof Enemy ? obj1 : obj2) as Enemy;
+    if (!enemy || !enemy.active) return;
     this.takeDamage(10);
     enemy.deactivate();
   }

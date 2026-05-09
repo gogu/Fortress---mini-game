@@ -19,7 +19,7 @@
 - [x] `bldg_barracks.png` - 兵营建筑（手绘帐篷或机械工厂，纯场景展示）
 
 ## 📂 /units (角色与单位)
-*豆豆眼火柴人设计。约 30x30 视觉大小，建议 8~12 FPS 序列帧。带有 `01` 代表序列帧动画第一帧。*
+*约 30x30 视觉大小，建议 8~12 FPS 序列帧。带有 `01` 代表序列帧动画第一帧。*
 
 **敌军 (从右向左冲锋)：**
 - [ ] `unit_enemy_cyan_run_01.png` ~ `..._xx.png` - 青色敌人：移动/奔跑
@@ -37,7 +37,7 @@
 - [ ] `unit_friend_purple_run_01.png` ~ `..._xx.png` - 紫色友军：移动/奔跑
 - [ ] `unit_friend_purple_fight_01.png` ~ `..._xx.png` - 紫色友军：交战僵持
 
-**精英敌军 (高大或带夸张头盔)：**
+**精英敌军**
 - [ ] `unit_elite_run_01.png` ~ `..._xx.png` - 精英敌人：移动
 - [ ] `unit_elite_fight_01.png` ~ `..._xx.png` - 精英敌人：交战僵持
 
@@ -49,9 +49,9 @@
 
 ## 📂 /items (掉落物与道具)
 *战场内拾取的道具外观。*
-- [ ] `item_drop_bomb.png` - 炸弹（骷髅头圆球）
-- [ ] `item_drop_health.png` - 治疗（十字药水瓶）
-- [ ] `item_drop_rage.png` - 狂暴（火焰符号）
+- [x] `item_drop_bomb.png` - 炸弹（骷髅头圆球）
+- [x] `item_drop_health.png` - 治疗（十字药水瓶）
+- [x] `item_drop_rage.png` - 狂暴（火焰符号）
 
 ## 📂 /vfx (视觉特效)
 - [ ] `fx_tap_feedback_01.png` ~ `..._xx.png` - **[极度重要]** 触屏点击反馈特效（水波纹/墨汁散开/准星缩放）
@@ -71,7 +71,7 @@
 
 **顶部状态栏与通用面板：**
 - [x] `ui_hud_health_empty.png` - 空血红心底框
-- [ ] `ui_icon_coin.png` - 金币小图标
+- [x] `ui_icon_coin.png` - 金币小图标
 - [ ] `ui_panel_bg_9slice.png` - 通用 UI 弹窗底板（带不规则边缘的黑板/木板/褶皱牛皮纸，必须支持引擎 9-slice 九宫格拉伸，四角清晰）
 - [ ] **[建议附加]** 一款用于显示 Combo 和分数的独立风格手写字体 (`.ttf` 或 `.woff` 格式)。
 

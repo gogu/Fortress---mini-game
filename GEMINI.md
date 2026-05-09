@@ -30,6 +30,8 @@ A top-down defense shooter and management game built with Phaser 3 and TypeScrip
 
 ## Development Conventions
 
+*   **Terminal:** Always use **PowerShell** for shell command executions.
+*   **Image Processing:** Use the **Jimp** library via Node.js scripts for asset manipulation (e.g., cropping, chroma-keying green backgrounds).
 *   **Scene Organization:**
     *   `BootScene`: Asset preloading and texture generation.
     *   `GameScene`: Core gameplay logic, physics, and state management.

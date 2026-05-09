@@ -25,6 +25,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image("ui_health_bar_frame", "/src/assets/ui/ui_health_bar_frame.png");
     this.load.image("ui_health_bar_fill", "/src/assets/ui/ui_health_bar_fill.png");
     this.load.image("ui_icon_coin", "/src/assets/ui/ui_icon_coin.png");
+
+    // Load Item assets
+    this.load.image("item_drop_bomb", "/src/assets/items/item_drop_bomb.png");
+    this.load.image("item_drop_health", "/src/assets/items/item_drop_health.png");
+    this.load.image("item_drop_rage", "/src/assets/items/item_drop_rage.png");
   }
 
   create() {
