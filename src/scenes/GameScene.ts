@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { 
   MODES, SCREEN_WIDTH, SCREEN_HEIGHT, SQUAD_SIZE, LANES, 
-  HEALTH_MAX, ENEMY_SPEED, FRIENDLY_SPEED, WIN_CONDITION
+  HEALTH_MAX, ENEMY_SPEED, FRIENDLY_SPEED, WIN_CONDITION, SHOW_DEBUG_VISUALS, SCORE_PER_UNIT
 } from "../constants";
 import { spawnParticles, getMultiplier, spawnMultiplier } from "../utils";
 import { Bullet, Enemy, Friendly, spawnItem } from "../entities";
@@ -120,6 +120,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.setupBackground();
+    if (SHOW_DEBUG_VISUALS) {
+      this.setupVisualization();
+    }
+    this.setupFinishLine();
     this.setupGroups();
     this.setupBuildings();
     this.setupInput();
@@ -148,14 +152,95 @@ export class GameScene extends Phaser.Scene {
     this.checkBoundaries();
   }
 
+  public gameMask!: Phaser.Display.Masks.GeometryMask;
+
   // --- Setup Methods ---
 
   private setupBackground() {
-    this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0xefeadc).setOrigin(0).setDepth(0);
-    this.add.image(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "bg_notebook")
+    this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0xefeadc).setOrigin(0).setDepth(-2);
+    const bg = this.add.image(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "bg_notebook")
       .setScale(0.5)
-      .setDepth(0)
+      .setDepth(-1)
       .setAlpha(0.9);
+
+    // Create a geometry mask based on the notebook's display bounds
+    const maskShape = this.make.graphics();
+    maskShape.fillStyle(0xffffff);
+    // Assuming the notebook has a slight margin, we define the printable area.
+    // Using a safe estimate: 40px margin horizontally, 30px vertically.
+    maskShape.fillRect(40, 30, SCREEN_WIDTH - 60, SCREEN_HEIGHT - 60);
+    this.gameMask = maskShape.createGeometryMask();
+  }
+
+  private setupVisualization() {
+    const debugGraphics = this.add.graphics();
+    debugGraphics.setDepth(100); // Very high depth to ensure it's on top
+    
+    // 1. Draw the absolute mask bounds (Green outline)
+    debugGraphics.lineStyle(2, 0x00ff00, 0.8);
+    debugGraphics.strokeRect(40, 30, SCREEN_WIDTH - 60, SCREEN_HEIGHT - 60);
+    
+    // 2. Draw the proposed safe vertical bounds for Friendlies (Red dashed lines)
+    // Friendlies are ~72px tall visually, let's say +/- 36 from origin.
+    // So safe Y should be ~ 30 + 36 = 66 (top) and ~ 570 - 36 = 534 (bottom).
+    // Let's use 60 and 540 for simplicity.
+    const safeTopY = 60;
+    const safeBottomY = SCREEN_HEIGHT - 60;
+    
+    debugGraphics.lineStyle(2, 0xff0000, 0.8);
+    debugGraphics.beginPath();
+    for (let x = 40; x < SCREEN_WIDTH - 20; x += 20) {
+      debugGraphics.moveTo(x, safeTopY);
+      debugGraphics.lineTo(x + 10, safeTopY);
+      debugGraphics.moveTo(x, safeBottomY);
+      debugGraphics.lineTo(x + 10, safeBottomY);
+    }
+    debugGraphics.strokePath();
+
+    // 3. Draw horizontal lines for the LANES to see where units currently want to go (Blue)
+    debugGraphics.lineStyle(1, 0x0000ff, 0.5);
+    LANES.forEach(laneY => {
+        debugGraphics.beginPath();
+        debugGraphics.moveTo(40, laneY);
+        debugGraphics.lineTo(SCREEN_WIDTH - 20, laneY);
+        debugGraphics.strokePath();
+    });
+  }
+
+  private setupFinishLine() {
+    const graphics = this.add.graphics();
+    graphics.setDepth(-0.5); // Above background (-1), below game elements (0)
+    graphics.setMask(this.gameMask);
+    
+    const x = SCREEN_WIDTH - 60; // Slightly inside to be visible
+    const dashLength = 20;
+    const gapLength = 15;
+    const jitter = 2.5;
+    const color = 0x4a4a4a;
+    const alpha = 0.6;
+    
+    // Draw twice for a slightly thicker, "ink-bleed" hand-drawn look
+    for (let pass = 0; pass < 2; pass++) {
+      graphics.lineStyle(pass === 0 ? 3 : 2, color, pass === 0 ? alpha : alpha * 0.5);
+      
+      for (let y = 10; y < SCREEN_HEIGHT - 10; y += dashLength + gapLength) {
+        graphics.beginPath();
+        let currentY = y;
+        
+        // Starting point with jitter
+        graphics.moveTo(x + (Math.random() - 0.5) * jitter, currentY + (Math.random() - 0.5) * jitter);
+        
+        // Midpoint for wobbliness
+        const midY = currentY + dashLength / 2;
+        graphics.lineTo(x + (Math.random() - 0.5) * jitter, midY + (Math.random() - 0.5) * jitter);
+        
+        // Endpoint for the dash
+        const endY = currentY + dashLength;
+        graphics.lineTo(x + (Math.random() - 0.5) * jitter, endY + (Math.random() - 0.5) * jitter);
+        
+        graphics.strokePath();
+      }
+    }
   }
 
   private setupGroups() {
@@ -166,12 +251,14 @@ export class GameScene extends Phaser.Scene {
 
   private setupBuildings() {
     // Fortress Base
-    this.fortress = this.add.sprite(100, SCREEN_HEIGHT / 2, "bldg_fortress").setScale(0.5).setOrigin(0.5);
+    this.fortress = this.add.sprite(130, SCREEN_HEIGHT / 2, "bldg_fortress").setScale(0.5).setOrigin(0.5);
     this.physics.add.existing(this.fortress, true);
     if (this.fortress.body) (this.fortress.body as Phaser.Physics.Arcade.StaticBody).setSize(120, 160);
+    this.fortress.setMask(this.gameMask);
     
     // Fortress Barrel
     this.fortressCore = this.add.sprite(this.fortress.x + 35, this.fortress.y, "bldg_cannon_barrel").setScale(0.5).setOrigin(0.2, 0.5);
+    this.fortressCore.setMask(this.gameMask);
     
     // Glow FX for Mode Hint
     if (this.fortress.postFX) {
@@ -180,9 +267,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Barracks
-    this.barracks = this.add.sprite(150, SCREEN_HEIGHT / 2 + 120, "bldg_barracks").setScale(0.5).setOrigin(0.8);
+    this.barracks = this.add.sprite(160, SCREEN_HEIGHT / 2 + 120, "bldg_barracks").setScale(0.5).setOrigin(0.8);
     this.physics.add.existing(this.barracks, true);
     if (this.barracks.body) (this.barracks.body as Phaser.Physics.Arcade.StaticBody).setSize(120, 100);
+    this.barracks.setMask(this.gameMask);
   }
 
   private setupInput() {
@@ -227,7 +315,7 @@ export class GameScene extends Phaser.Scene {
 
   private setupEventHandlers() {
     this.events.on("bulletMissed", () => this.updateCombo(0));
-    this.events.on("friendlyScored", (color: number) => this.handleFriendlyScore(color));
+    this.events.on("friendlyReachedEnd", (x: number, y: number, color: number) => this.handleFriendlyReachedEnd(x, y, color));
     this.events.on("friendlyUpdate", (f: Friendly) => this.updateFriendlyAI(f));
     this.events.on("requestBomb", () => this.useBomb());
   }
@@ -405,7 +493,13 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < SQUAD_SIZE; i++) {
       this.time.delayedCall(i * 150, () => {
         const e = this.enemies.get() as Enemy;
-        if (e) e.spawn(SCREEN_WIDTH + 50, laneY + Phaser.Math.Between(-20, 20), MODES[colorIndex].color, ENEMY_SPEED, squadId, laneIndex, false);
+        if (e) {
+          let spawnY = laneY + Phaser.Math.Between(-20, 20);
+          // Constrain Y to keep sprite within mask bounds (y:30 to 570)
+          // Enemy scale is 0.5, so rough height is ~60px (±30 from origin)
+          spawnY = Phaser.Math.Clamp(spawnY, 60, SCREEN_HEIGHT - 60);
+          e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, ENEMY_SPEED, squadId, laneIndex, false);
+        }
       });
     }
   }
@@ -414,7 +508,12 @@ export class GameScene extends Phaser.Scene {
     const colorIndex = Phaser.Math.Between(0, 2);
     const laneIndex = Phaser.Math.Between(0, LANES.length - 1);
     const e = this.enemies.get() as Enemy;
-    if (e) e.spawn(SCREEN_WIDTH + 50, LANES[laneIndex], MODES[colorIndex].color, ENEMY_SPEED + 10, "elite", laneIndex, true);
+    if (e) {
+      let spawnY = LANES[laneIndex];
+      // Elite scale is also 0.5, height is ~120px (±60 from origin)
+      spawnY = Phaser.Math.Clamp(spawnY, 90, SCREEN_HEIGHT - 90);
+      e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, ENEMY_SPEED + 10, "elite", laneIndex, true);
+    }
   }
 
   // --- Collision Handlers ---
@@ -563,6 +662,7 @@ export class GameScene extends Phaser.Scene {
 
   private createExplosion(x: number, y: number, color: number, dmg: number) {
     const circle = this.add.circle(x, y, 50, color, 0.3);
+    circle.setMask(this.gameMask);
     this.physics.add.existing(circle);
     if (circle.body && 'setCircle' in circle.body) (circle.body as Phaser.Physics.Arcade.Body).setCircle(50);
     this.physics.add.overlap(circle, this.enemies, (_, e) => {
@@ -575,10 +675,73 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(100, () => circle.destroy());
   }
 
+  private handleFriendlyReachedEnd(x: number, y: number, color: number) {
+    // Transform into a light point
+    const lightPoint = this.add.circle(x, y, 8, color);
+    if (lightPoint.postFX) {
+      lightPoint.postFX.addGlow(color, 4, 0, false, 0.1, 10);
+    }
+    
+    // Ensure it renders above other elements
+    lightPoint.setDepth(10);
+
+    // Get target coordinates from UIScene
+    const uiScene = this.scene.get("UIScene") as any; // Cast to access custom method
+    const targetPos = uiScene.getSuccessCounterPosition(color);
+
+    if (targetPos) {
+      // Create trailing particle effect
+      const particles = this.add.particles(0, 0, 'white-pixel', {
+        speed: { min: 20, max: 50 },
+        scale: { start: 0.5, end: 0 },
+        alpha: { start: 0.8, end: 0 },
+        tint: color,
+        lifespan: 300,
+        frequency: 30,
+        follow: lightPoint
+      });
+      particles.setDepth(9);
+
+      // Tween to the target
+      this.tweens.add({
+        targets: lightPoint,
+        x: targetPos.x + 8, // Center roughly on the color block
+        y: targetPos.y,
+        scale: 0.5,
+        duration: 800,
+        ease: "Cubic.easeIn",
+        onComplete: () => {
+          particles.stop();
+          this.time.delayedCall(300, () => particles.destroy());
+          
+          // Flash effect upon absorption
+          const flash = this.add.circle(targetPos.x + 8, targetPos.y, 15, color)
+            .setDepth(11)
+            .setAlpha(0.8);
+          
+          this.tweens.add({
+            targets: flash,
+            scale: 2,
+            alpha: 0,
+            duration: 300,
+            onComplete: () => flash.destroy()
+          });
+
+          lightPoint.destroy();
+          this.handleFriendlyScore(color);
+        }
+      });
+    } else {
+      // Fallback if UI target not found
+      lightPoint.destroy();
+      this.handleFriendlyScore(color);
+    }
+  }
+
   private handleFriendlyScore(color: number) {
     const idx = MODES.findIndex(m => m.color === color);
     if (idx === -1) return;
-    this.successCounts[idx]++;
+    this.successCounts[idx] += SCORE_PER_UNIT;
     this.events.emit("updateSuccess", this.successCounts);
     if (this.successCounts.every(c => c >= WIN_CONDITION)) {
       this.scene.stop("UIScene");

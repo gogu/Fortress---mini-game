@@ -21,6 +21,7 @@ export class Bullet extends Phaser.GameObjects.Rectangle {
     this.setPosition(x, y);
     this.setActive(true);
     this.setVisible(true);
+    this.setMask((this.scene as any).gameMask);
     this.hasHit = false;
     this.hitTargets.clear();
     this.dmg = dmg;
@@ -98,6 +99,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.setPosition(x, y);
     this.setActive(true);
     this.setVisible(true);
+    this.setMask((this.scene as any).gameMask);
     
     this.col = color;
     this.speed = speed;
@@ -255,6 +257,7 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     this.setPosition(x, y);
     this.setActive(true);
     this.setVisible(true);
+    this.setMask((this.scene as any).gameMask);
     
     this.col = color;
     this.squadId = squadId;
@@ -301,9 +304,13 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     super.preUpdate(time, delta);
     if (!this.active) return;
 
-    if (!this.hasScored && this.x > SCREEN_WIDTH) {
+    // Check if the friendly crossed the finish line
+    // The finish line is at SCREEN_WIDTH - 60. So when x > SCREEN_WIDTH - 60, we trigger.
+    if (!this.hasScored && this.x > SCREEN_WIDTH - 60) {
       this.hasScored = true;
-      this.scene.events.emit("friendlyScored", this.col);
+      this.scene.events.emit("friendlyReachedEnd", this.x, this.y, this.col);
+      this.deactivate();
+      return;
     }
 
     if (this.isStalemated) {
@@ -319,7 +326,7 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     // Logic for finding target (will be handled by GameScene to avoid redundant searches)
     this.scene.events.emit("friendlyUpdate", this);
 
-    if (this.x > SCREEN_WIDTH + 100 || this.x < -100 || this.y > SCREEN_HEIGHT + 100 || this.y < -100) {
+    if (this.x < -100 || this.y > SCREEN_HEIGHT + 100 || this.y < -100) {
       this.deactivate();
     }
   }
@@ -335,6 +342,7 @@ export class Friendly extends Phaser.GameObjects.Sprite {
 
 export function spawnItem(scene: Phaser.Scene, x: number, y: number, type: "bomb" | "health" | "rage", target: Phaser.GameObjects.Components.Transform, onCollect: () => void) {
   const container = scene.add.container(x, y);
+  container.setMask((scene as any).gameMask);
   
   // Use the loaded images
   const sprite = scene.add.image(0, 0, `item_drop_${type}`);

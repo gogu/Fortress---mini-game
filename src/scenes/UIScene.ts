@@ -4,6 +4,10 @@ import { SCREEN_WIDTH, SCREEN_HEIGHT, WIN_CONDITION, MODES } from "../constants"
 export class UIScene extends Phaser.Scene {
   private goldLabel!: Phaser.GameObjects.Text;
   private goldIcon!: Phaser.GameObjects.Image;
+  private currentGold: number = 0;
+  private goldMask!: Phaser.Display.Masks.GeometryMask;
+  private nextGoldLabel?: Phaser.GameObjects.Text;
+  private goldStartY: number = 350; // Target Y coordinate over the Barracks
   private victoryLabel!: Phaser.GameObjects.Text;
   private successTexts: Phaser.GameObjects.Text[] = [];
   private comboLabel!: Phaser.GameObjects.Text;
@@ -35,8 +39,41 @@ export class UIScene extends Phaser.Scene {
     this.createTopBar();
     this.createHealthBar();
     this.createVictoryProgress();
+    this.createGoldUI();
     this.createBombButton();
     this.setupEventBindings();
+  }
+
+  private createGoldUI() {
+    const startX = 90;
+    const startY = this.goldStartY;
+
+    // Hard white outline using a slightly larger, white-tinted silhouette behind the icon
+    this.add.image(startX, startY, "ui_icon_coin")
+      .setOrigin(0.5)
+      .setScale(0.6)
+      .setTintFill(0xffffff);
+
+    // Main Gold Icon
+    this.goldIcon = this.add.image(startX, startY, "ui_icon_coin").setOrigin(0.5).setScale(0.5);
+
+    // Gold Label with hard white stroke
+    this.goldLabel = this.add.text(this.goldIcon.x + this.goldIcon.displayWidth/2 + 5, startY, "0", { 
+      fontFamily: "WuXin",
+      fontSize: "22px", 
+      color: "#8b4513",
+      fontStyle: "bold",
+      stroke: "#ffffff",
+      strokeThickness: 5
+    }).setOrigin(0, 0.5);
+
+    // Create a mask for the gold rolling effect
+    const maskShape = this.make.graphics();
+    maskShape.fillStyle(0xffffff);
+    // Mask covers the text area slightly around the baseline
+    maskShape.fillRect(this.goldLabel.x, startY - 20, 200, 40);
+    this.goldMask = maskShape.createGeometryMask();
+    this.goldLabel.setMask(this.goldMask);
   }
 
   private createTopBar() {
@@ -66,15 +103,6 @@ export class UIScene extends Phaser.Scene {
       pauseBtn.setScale(0.55);
       pauseBtn.setTint(0xdddddd);
     });
-
-    // Top Right: Gold [Icon][Number] (Shifted left to avoid pause button)
-    this.goldIcon = this.add.image(SCREEN_WIDTH - 190, 65, "ui_icon_coin").setOrigin(0, 0.5).setScale(0.5);
-    this.goldLabel = this.add.text(this.goldIcon.x + this.goldIcon.displayWidth + 5, 65, "0", { 
-      fontFamily: "WuXin",
-      fontSize: "22px", 
-      color: "#8b4513",
-      fontStyle: "bold"
-    }).setOrigin(0, 0.5);
 
     // Center: Combo
     this.comboBg = this.add.image(SCREEN_WIDTH / 2 + 55, 120, "ui_combo_bg")
@@ -263,6 +291,15 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
+  public getSuccessCounterPosition(color: number): { x: number, y: number } | null {
+    const idx = MODES.findIndex(m => m.color === color);
+    if (idx !== -1 && this.successTexts[idx]) {
+      const textObj = this.successTexts[idx];
+      return { x: textObj.x, y: textObj.y };
+    }
+    return null;
+  }
+
   // --- Event Handlers ---
 
   private onUpdateHealth(health: number) {
@@ -274,8 +311,52 @@ export class UIScene extends Phaser.Scene {
   }
 
   private onUpdateGold(gold: number) {
-    this.goldLabel.setText(`${gold}`);
-    // No animations, static update
+    if (this.currentGold === gold) return;
+
+    const isIncrease = gold > this.currentGold;
+    const direction = isIncrease ? -1 : 1; // -1 for up, 1 for down
+    const offset = 30;
+    const targetY = this.goldStartY;
+
+    // 0. Clean up previous animation if still running
+    if (this.nextGoldLabel) {
+      this.tweens.killTweensOf([this.goldLabel, this.nextGoldLabel]);
+      this.goldLabel.destroy();
+      this.goldLabel = this.nextGoldLabel;
+      this.goldLabel.setPosition(this.goldLabel.x, targetY).setAlpha(1);
+      this.nextGoldLabel = undefined;
+    }
+
+    // 1. Prepare New Label
+    this.nextGoldLabel = this.add.text(this.goldLabel.x, targetY - direction * offset, `${gold}`, this.goldLabel.style)
+      .setOrigin(0, 0.5)
+      .setMask(this.goldMask)
+      .setAlpha(0);
+
+    // 2. Animate Both
+    const oldLabel = this.goldLabel;
+    this.tweens.add({
+      targets: oldLabel,
+      y: targetY + direction * offset,
+      alpha: 0,
+      duration: 150,
+      ease: "Quad.easeOut",
+      onComplete: () => oldLabel.destroy()
+    });
+
+    this.tweens.add({
+      targets: this.nextGoldLabel,
+      y: targetY,
+      alpha: 1,
+      duration: 150,
+      ease: "Quad.easeOut",
+      onComplete: () => {
+        this.goldLabel = this.nextGoldLabel!;
+        this.nextGoldLabel = undefined;
+      }
+    });
+
+    this.currentGold = gold;
   }
 
   private onUpdateSuccess(counts: number[]) {

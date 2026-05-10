@@ -22,23 +22,23 @@
 *约 30x30 视觉大小，建议 8~12 FPS 序列帧。带有 `01` 代表序列帧动画第一帧。*
 
 **敌军 (从右向左冲锋)：**
-- [ ] `unit_enemy_cyan_run_01.png` ~ `..._xx.png` - 青色敌人：移动/奔跑
+- [x] `unit_enemy_cyan_run_01.png` ~ `..._xx.png` - 青色敌人：移动/奔跑
 - [ ] `unit_enemy_cyan_fight_01.png` ~ `..._xx.png` - 青色敌人：交战僵持
-- [ ] `unit_enemy_orange_run_01.png` ~ `..._xx.png` - 橙色敌人：移动/奔跑
+- [x] `unit_enemy_orange_run_01.png` ~ `..._xx.png` - 橙色敌人：移动/奔跑
 - [ ] `unit_enemy_orange_fight_01.png` ~ `..._xx.png` - 橙色敌人：交战僵持
-- [ ] `unit_enemy_purple_run_01.png` ~ `..._xx.png` - 紫色敌人：移动/奔跑
+- [x] `unit_enemy_purple_run_01.png` ~ `..._xx.png` - 紫色敌人：移动/奔跑
 - [ ] `unit_enemy_purple_fight_01.png` ~ `..._xx.png` - 紫色敌人：交战僵持
 
 **友军 (从左向右冲锋，带有特定样式的头盔或旗帜区分)：**
-- [ ] `unit_friend_cyan_run_01.png` ~ `..._xx.png` - 青色友军：移动/奔跑
+- [x] `unit_friend_cyan_run_01.png` ~ `..._xx.png` - 青色友军：移动/奔跑
 - [ ] `unit_friend_cyan_fight_01.png` ~ `..._xx.png` - 青色友军：交战僵持
-- [ ] `unit_friend_orange_run_01.png` ~ `..._xx.png` - 橙色友军：移动/奔跑
+- [x] `unit_friend_orange_run_01.png` ~ `..._xx.png` - 橙色友军：移动/奔跑
 - [ ] `unit_friend_orange_fight_01.png` ~ `..._xx.png` - 橙色友军：交战僵持
-- [ ] `unit_friend_purple_run_01.png` ~ `..._xx.png` - 紫色友军：移动/奔跑
+- [x] `unit_friend_purple_run_01.png` ~ `..._xx.png` - 紫色友军：移动/奔跑
 - [ ] `unit_friend_purple_fight_01.png` ~ `..._xx.png` - 紫色友军：交战僵持
 
 **精英敌军**
-- [ ] `unit_elite_run_01.png` ~ `..._xx.png` - 精英敌人：移动
+- [x] `unit_elite_run_01.png` ~ `..._xx.png` - 精英敌人：移动
 - [ ] `unit_elite_fight_01.png` ~ `..._xx.png` - 精英敌人：交战僵持
 
 ## 📂 /projectiles (各类子弹与光束)
@@ -55,12 +55,9 @@
 
 ## 📂 /vfx (视觉特效)
 - [ ] `fx_tap_feedback_01.png` ~ `..._xx.png` - **[极度重要]** 触屏点击反馈特效（水波纹/墨汁散开/准星缩放）
-- [ ] `fx_hit_cyan_01.png` ~ `..._xx.png` - 受击与死亡特效：青色（墨汁飞溅或星形）
-- [ ] `fx_hit_orange_01.png` ~ `..._xx.png` - 受击与死亡特效：橙色
-- [ ] `fx_hit_purple_01.png` ~ `..._xx.png` - 受击与死亡特效：紫色
+- [x] 受击与死亡特效（墨汁飞溅或星形）
 - [ ] `fx_explosion_orange_01.png` ~ `..._xx.png` - 爆裂弹大爆炸（手绘大爆炸）
 - [ ] `fx_struggle_sparks_01.png` ~ `..._xx.png` - 兵种交战特效（刀剑碰撞火花）
-- [ ] `fx_struggle_sweat_01.png` ~ `..._xx.png` - 兵种交战特效（汗滴）
 
 ## 📂 /ui (界面元素、图标与按钮)
 
