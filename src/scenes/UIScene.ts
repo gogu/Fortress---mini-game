@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { SCREEN_WIDTH, SCREEN_HEIGHT, WIN_CONDITION, MODES } from "../constants";
+import { GameScene } from "./GameScene";
 
 export class UIScene extends Phaser.Scene {
   private goldLabel!: Phaser.GameObjects.Text;
@@ -15,6 +16,10 @@ export class UIScene extends Phaser.Scene {
   private rageLabel!: Phaser.GameObjects.Text;
   private fpsLabel!: Phaser.GameObjects.Text;
   private pausedLabel!: Phaser.GameObjects.Text;
+  private pauseOverlayBg!: Phaser.GameObjects.Rectangle;
+  private scanlineOverlay!: Phaser.GameObjects.TileSprite;
+  private resumeBtn!: Phaser.GameObjects.Text;
+  private resumeBtnBorder!: Phaser.GameObjects.Graphics;
   private bombBtn!: Phaser.GameObjects.Image;
   private bombLeds: Phaser.GameObjects.Rectangle[] = [];
   private isPaused: boolean = false;
@@ -104,30 +109,66 @@ export class UIScene extends Phaser.Scene {
       pauseBtn.setTint(0xdddddd);
     });
 
-    // Center: Combo
-    this.comboBg = this.add.image(SCREEN_WIDTH / 2 + 55, 120, "ui_combo_bg")
-      .setOrigin(0.5)
-      .setScale(0.5)
-      .setAlpha(0);
-    
-    this.comboLabel = this.add.text(SCREEN_WIDTH / 2 + 80, 105, "0", { 
-      fontFamily: "WuXin",
-      fontSize: "100px", 
-      color: "#000000",
-      fontStyle: "bold",
-    }).setOrigin(0.5).setAlpha(0);
-    
+    // Paused Overlay Background (darkens screen, but now using ADD blend mode)
+    this.pauseOverlayBg = this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x111111, 0.5)
+      .setOrigin(0)
+      .setDepth(99)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+      
+    // Block interaction behind overlay when paused
+    this.pauseOverlayBg.setInteractive();
+
     // Paused Overlay Text
-    this.pausedLabel = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "PAUSED", {
+    this.pausedLabel = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 60, "PAUSED", {
       fontFamily: "WuXin",
       fontSize: "64px",
       color: "#ffffff",
       fontStyle: "bold",
       stroke: "#000000",
       strokeThickness: 8
-    }).setOrigin(0.5).setAlpha(0).setDepth(100);
-// Right Side: Items (shifted down to avoid gold)
-    this.rageLabel = this.add.text(SCREEN_WIDTH - 20, 170, "RAGE: 0s", { fontFamily: "WuXin", fontSize: "16px", color: "#4b0082" }).setOrigin(1, 0).setAlpha(0);
+    }).setOrigin(0.5).setVisible(false).setDepth(100);
+
+    // Resume Button
+    this.resumeBtn = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 50, "Resume", {
+      fontFamily: "WuXin",
+      fontSize: "32px",
+      color: "#ffffff",
+      padding: { x: 30, y: 12 },
+      stroke: "#000000",
+      strokeThickness: 4
+    })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+      .setVisible(false)
+      .setDepth(100);
+
+    // Hand-drawn wobbly border for Resume button
+    this.resumeBtnBorder = this.add.graphics().setDepth(100).setVisible(false);
+    this.drawResumeBorder();
+
+    this.resumeBtn.on("pointerover", () => {
+      this.resumeBtn.setAlpha(0.7);
+      this.resumeBtnBorder.setAlpha(0.7);
+    });
+    this.resumeBtn.on("pointerout", () => {
+      this.resumeBtn.setAlpha(1);
+      this.resumeBtnBorder.setAlpha(1);
+    });
+    this.resumeBtn.on("pointerdown", () => this.togglePause());
+
+    // Create Scanline Texture and Overlay
+    this.createScanlineOverlay();
+
+    // Apply GameScene mask to overlay elements so they don't bleed outside the notebook area
+    const gameScene = this.scene.get("GameScene") as GameScene;
+    if (gameScene && gameScene.gameMask) {
+      this.pauseOverlayBg.setMask(gameScene.gameMask);
+      this.scanlineOverlay.setMask(gameScene.gameMask);
+    }
+
+    // Right Side: Items (shifted down to avoid gold)
+    this.rageLabel = this.add.text(SCREEN_WIDTH - 20, 180, "RAGE: 0s", { fontFamily: "WuXin", fontSize: "16px", color: "#4b0082" }).setOrigin(1, 0).setAlpha(0);
 
     // Bottom Left: FPS
     this.fpsLabel = this.add.text(20, SCREEN_HEIGHT - 20, "FPS: 0", { fontFamily: "WuXin", fontSize: "14px", color: "#2f4f4f" }).setOrigin(0, 1);
@@ -135,6 +176,13 @@ export class UIScene extends Phaser.Scene {
     // ESC Key to Pause
     this.input.keyboard?.on("keydown-ESC", () => {
       this.togglePause();
+    });
+
+    // Auto-pause when game window loses focus
+    this.game.events.on(Phaser.Core.Events.BLUR, () => {
+      if (!this.isPaused && this.scene.isActive("GameScene")) {
+        this.togglePause();
+      }
     });
   }
 
@@ -144,11 +192,66 @@ export class UIScene extends Phaser.Scene {
 
     if (this.isPaused) {
       gameScene.scene.pause();
-      this.pausedLabel.setAlpha(1);
+      this.pauseOverlayBg.setVisible(true);
+      this.scanlineOverlay.setVisible(true);
+      this.pausedLabel.setVisible(true);
+      this.resumeBtn.setVisible(true);
+      this.resumeBtnBorder.setVisible(true);
     } else {
       gameScene.scene.resume();
-      this.pausedLabel.setAlpha(0);
+      this.pauseOverlayBg.setVisible(false);
+      this.scanlineOverlay.setVisible(false);
+      this.pausedLabel.setVisible(false);
+      this.resumeBtn.setVisible(false);
+      this.resumeBtnBorder.setVisible(false);
     }
+  }
+
+  private drawResumeBorder() {
+    this.resumeBtnBorder.clear();
+    const w = this.resumeBtn.displayWidth + 20;
+    const h = this.resumeBtn.displayHeight + 10;
+    const x = this.resumeBtn.x - w / 2;
+    const y = this.resumeBtn.y - h / 2;
+    
+    const wobble = 2;
+    const points = [
+      { x: x, y: y },
+      { x: x + w, y: y },
+      { x: x + w, y: y + h },
+      { x: x, y: y + h }
+    ];
+    
+    const wp = points.map(p => ({
+      x: p.x + (Math.random() - 0.5) * wobble,
+      y: p.y + (Math.random() - 0.5) * wobble
+    }));
+
+    this.resumeBtnBorder.lineStyle(3, 0xffffff, 1);
+    // Draw twice for hand-drawn look
+    for (let pass = 0; pass < 2; pass++) {
+      this.resumeBtnBorder.beginPath();
+      this.resumeBtnBorder.moveTo(wp[0].x + (Math.random()-0.5), wp[0].y + (Math.random()-0.5));
+      for (let i = 0; i < wp.length; i++) {
+        const next = wp[(i + 1) % wp.length];
+        this.resumeBtnBorder.lineTo(next.x + (Math.random()-0.5), next.y + (Math.random()-0.5));
+      }
+      this.resumeBtnBorder.strokePath();
+    }
+  }
+
+  private createScanlineOverlay() {
+    // Create a 2x4 texture for scanlines (one line dark, one line transparent)
+    const graphics = this.make.graphics({ x: 0, y: 0 });
+    graphics.fillStyle(0x000000, 0.2);
+    graphics.fillRect(0, 0, 2, 2);
+    graphics.generateTexture("scanline", 2, 4);
+    
+    this.scanlineOverlay = this.add.tileSprite(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, "scanline")
+      .setOrigin(0)
+      .setDepth(99)
+      .setAlpha(0.6)
+      .setVisible(false);
   }
 
   private createHealthBar() {
@@ -242,21 +345,22 @@ export class UIScene extends Phaser.Scene {
     }
 
     this.bombBtn.on("pointerover", () => {
-      if (this.bombBtn.alpha === 1) {
+      if (this.bombBtn.tintTopLeft === 0xffffff) {
         this.bombBtn.setScale(0.55);
         this.bombBtn.setTint(0xdddddd);
       }
     });
 
     this.bombBtn.on("pointerout", () => {
-      if (this.bombBtn.alpha === 1) {
+      // If it was hovered (0xdddddd), reset to default enabled (0xffffff)
+      if (this.bombBtn.tintTopLeft === 0xdddddd) {
         this.bombBtn.setScale(0.5);
-        this.bombBtn.clearTint();
+        this.bombBtn.setTint(0xffffff);
       }
     });
 
     this.bombBtn.on("pointerdown", () => {
-      if (this.bombBtn.alpha === 1) {
+      if (this.bombBtn.tintTopLeft === 0xffffff || this.bombBtn.tintTopLeft === 0xdddddd) {
         this.bombBtn.setScale(0.45);
         this.bombBtn.setTint(0xaaaaaa);
         this.scene.get("GameScene").events.emit("requestBomb");
@@ -264,7 +368,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     this.bombBtn.on("pointerup", () => {
-      if (this.bombBtn.alpha === 1) {
+      if (this.bombBtn.tintTopLeft === 0xaaaaaa) {
         this.bombBtn.setScale(0.55);
         this.bombBtn.setTint(0xdddddd);
       }
@@ -277,7 +381,6 @@ export class UIScene extends Phaser.Scene {
     gameScene.events.on("updateHealth", this.onUpdateHealth, this);
     gameScene.events.on("updateGold", this.onUpdateGold, this);
     gameScene.events.on("updateSuccess", this.onUpdateSuccess, this);
-    gameScene.events.on("updateCombo", this.onUpdateCombo, this);
     gameScene.events.on("updateBombs", this.onUpdateBombs, this);
     gameScene.events.on("updateRage", this.onUpdateRage, this);
 
@@ -285,7 +388,6 @@ export class UIScene extends Phaser.Scene {
       gameScene.events.off("updateHealth", this.onUpdateHealth, this);
       gameScene.events.off("updateGold", this.onUpdateGold, this);
       gameScene.events.off("updateSuccess", this.onUpdateSuccess, this);
-      gameScene.events.off("updateCombo", this.onUpdateCombo, this);
       gameScene.events.off("updateBombs", this.onUpdateBombs, this);
       gameScene.events.off("updateRage", this.onUpdateRage, this);
     });
@@ -387,27 +489,6 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  private onUpdateCombo(combo: number) {
-    if (combo > 0) {
-      this.comboLabel.setText(`${combo}`).setAlpha(1);
-      this.comboBg.setAlpha(1);
-      if (this.tweens.isTweening(this.comboBg)) return;
-      
-      // Pop animation
-      const originalScale = this.comboBg.scale;
-      this.tweens.add({
-        targets: [this.comboBg],
-        scale: { from: originalScale * 1.2, to: originalScale },
-        duration: 100,
-        ease: "Back.easeOut"
-      });
-      this.comboBg.scale = originalScale;
-    } else {
-      this.comboLabel.setAlpha(0);
-      this.comboBg.setAlpha(0);
-    }
-  }
-
   private onUpdateBombs(bombs: number) {
     for (let i = 0; i < 2; i++) {
       if (i < bombs) {
@@ -418,12 +499,11 @@ export class UIScene extends Phaser.Scene {
     }
     
     if (bombs > 0) {
-      this.bombBtn.setAlpha(1);
       this.bombBtn.setTint(0xffffff);
       this.bombBtn.input!.cursor = "pointer";
     } else {
-      this.bombBtn.setAlpha(0.5);
-      this.bombBtn.setTint(0x666666);
+      // Disabled state: Lighter gray tint, full opacity
+      this.bombBtn.setTint(0x888888);
       this.bombBtn.input!.cursor = "default";
     }
   }

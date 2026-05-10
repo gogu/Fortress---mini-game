@@ -35,6 +35,12 @@ export class GameScene extends Phaser.Scene {
   private fortress!: Phaser.GameObjects.Sprite;
   private fortressCore!: Phaser.GameObjects.Sprite;
   private barracks!: Phaser.GameObjects.Sprite;
+  private cdBar!: Phaser.GameObjects.Graphics;
+
+  // --- UI Elements ---
+  private comboBg!: Phaser.GameObjects.Image;
+  private comboLabel!: Phaser.GameObjects.Text;
+  private comboFadeTween?: Phaser.Tweens.Tween;
 
   constructor() {
     super("GameScene");
@@ -150,6 +156,73 @@ export class GameScene extends Phaser.Scene {
     this.updateBarrelRotation();
     this.updateUnitLogic();
     this.checkBoundaries();
+    this.updateCDBar(time);
+  }
+
+  private updateCDBar(time: number) {
+    this.cdBar.clear();
+    
+    const mode = MODES[this.weaponMode];
+    const isRage = this.rageRemaining > 0;
+    const actualCd = isRage ? 100 : mode.cd * 1000;
+    const elapsed = time - this.lastShotTime;
+    const progress = Phaser.Math.Clamp(elapsed / actualCd, 0, 1);
+    
+    // Position above the fortress
+    const x = this.fortress.x - 30;
+    const y = this.fortress.y - 80;
+    const width = 60;
+    const height = 10;
+
+    if (progress >= 1) return;
+
+    // Draw background with hand-drawn white stroke
+    this.drawWobblyRect(x, y, width, height, 0xffffff, 0x000000, 0.4);
+    
+    // Draw progress fill
+    if (progress > 0) {
+      const fillWidth = (width - 4) * progress;
+      if (fillWidth > 0) {
+        this.cdBar.fillStyle(mode.color, 0.8);
+        this.cdBar.fillRect(x + 2, y + 2, fillWidth, height - 4);
+      }
+    }
+  }
+
+  private drawWobblyRect(x: number, y: number, w: number, h: number, strokeColor: number, fillColor: number, fillAlpha: number) {
+    const wobble = 1.5;
+    const points = [
+      { x: x, y: y },
+      { x: x + w, y: y },
+      { x: x + w, y: y + h },
+      { x: x, y: y + h }
+    ];
+    
+    // Randomized points for wobbly look
+    const wp = points.map(p => ({
+      x: p.x + (Math.random() - 0.5) * wobble,
+      y: p.y + (Math.random() - 0.5) * wobble
+    }));
+
+    // Fill
+    this.cdBar.fillStyle(fillColor, fillAlpha);
+    this.cdBar.beginPath();
+    this.cdBar.moveTo(wp[0].x, wp[0].y);
+    for (let i = 1; i < wp.length; i++) this.cdBar.lineTo(wp[i].x, wp[i].y);
+    this.cdBar.closePath();
+    this.cdBar.fillPath();
+
+    // White Stroke (drawn twice for hand-drawn intensity)
+    this.cdBar.lineStyle(2, strokeColor, 1);
+    for (let pass = 0; pass < 2; pass++) {
+      this.cdBar.beginPath();
+      this.cdBar.moveTo(wp[0].x + (Math.random()-0.5), wp[0].y + (Math.random()-0.5));
+      for (let i = 0; i < wp.length; i++) {
+        const next = wp[(i + 1) % wp.length];
+        this.cdBar.lineTo(next.x + (Math.random()-0.5), next.y + (Math.random()-0.5));
+      }
+      this.cdBar.strokePath();
+    }
   }
 
   public gameMask!: Phaser.Display.Masks.GeometryMask;
@@ -170,6 +243,20 @@ export class GameScene extends Phaser.Scene {
     // Using a safe estimate: 40px margin horizontally, 30px vertically.
     maskShape.fillRect(40, 30, SCREEN_WIDTH - 60, SCREEN_HEIGHT - 60);
     this.gameMask = maskShape.createGeometryMask();
+
+    // Center: Combo (Depth -0.8 to render behind units (0) but above background (-1))
+    this.comboBg = this.add.image(SCREEN_WIDTH / 2 + 55, 120, "ui_combo_bg")
+      .setOrigin(0.5)
+      .setScale(0.5)
+      .setAlpha(0)
+      .setDepth(-0.8);
+    
+    this.comboLabel = this.add.text(SCREEN_WIDTH / 2 + 80, 105, "0", { 
+      fontFamily: "WuXin",
+      fontSize: "100px", 
+      color: "#000000",
+      fontStyle: "bold",
+    }).setOrigin(0.5).setAlpha(0).setDepth(-0.8);
   }
 
   private setupVisualization() {
@@ -271,6 +358,9 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.existing(this.barracks, true);
     if (this.barracks.body) (this.barracks.body as Phaser.Physics.Arcade.StaticBody).setSize(120, 100);
     this.barracks.setMask(this.gameMask);
+
+    // Cooldown Bar
+    this.cdBar = this.add.graphics();
   }
 
   private setupInput() {
@@ -541,8 +631,7 @@ export class GameScene extends Phaser.Scene {
 
     if (enemy.hp <= 0) {
       this.killEnemy(enemy);
-      const cdMs = MODES[this.weaponMode].cd * 1000;
-      this.lastShotTime = this.time.now - (cdMs - 100); // Kill reward CD
+      this.spawnEnergyOrb(enemy.x, enemy.y, enemy.col);
     }
   }
 
@@ -609,6 +698,59 @@ export class GameScene extends Phaser.Scene {
           if (u instanceof Enemy) u.body.setVelocity(-u.speed, 0);
         }
       });
+    });
+  }
+
+  private spawnEnergyOrb(startX: number, startY: number, color: number) {
+    const orb = this.add.circle(startX, startY, 6, color);
+    if (orb.postFX) {
+      orb.postFX.addGlow(color, 2, 0, false, 0.1, 5);
+    }
+    orb.setDepth(10);
+
+    // Create a simple trailing particle effect
+    const particles = this.add.particles(0, 0, 'white-pixel', {
+      speed: { min: 10, max: 30 },
+      scale: { start: 0.3, end: 0 },
+      alpha: { start: 0.6, end: 0 },
+      tint: color,
+      lifespan: 200,
+      frequency: 20,
+      follow: orb
+    });
+    particles.setDepth(9);
+
+    const targetX = this.fortressCore.x;
+    const targetY = this.fortressCore.y;
+
+    this.tweens.add({
+      targets: orb,
+      x: targetX,
+      y: targetY,
+      duration: 400,
+      ease: "Cubic.easeIn",
+      onComplete: () => {
+        particles.stop();
+        this.time.delayedCall(200, () => particles.destroy());
+
+        // Flash effect upon absorption
+        const flash = this.add.circle(targetX, targetY, 12, color)
+          .setDepth(11)
+          .setAlpha(0.8);
+        
+        this.tweens.add({
+          targets: flash,
+          scale: 2,
+          alpha: 0,
+          duration: 200,
+          onComplete: () => flash.destroy()
+        });
+
+        orb.destroy();
+        
+        // Reset Cooldown
+        this.lastShotTime = 0;
+      }
     });
   }
 
@@ -702,20 +844,38 @@ export class GameScene extends Phaser.Scene {
       });
       particles.setDepth(9);
 
-      // Tween to the target
+      const finalX = targetPos.x + 8;
+      const finalY = targetPos.y;
+
+      // Define a curve
+      const midX = x - (x - finalX) * 0.5;
+      const midY = finalY - 100; // Curve upwards
+      
+      const curve = new Phaser.Curves.QuadraticBezier(
+        new Phaser.Math.Vector2(x, y),
+        new Phaser.Math.Vector2(midX, midY),
+        new Phaser.Math.Vector2(finalX, finalY)
+      );
+
+      // Tween along the curve
+      const orbData = { t: 0 };
       this.tweens.add({
-        targets: lightPoint,
-        x: targetPos.x + 8, // Center roughly on the color block
-        y: targetPos.y,
-        scale: 0.5,
+        targets: orbData,
+        t: 1,
         duration: 800,
-        ease: "Cubic.easeIn",
+        ease: "Sine.easeInOut",
+        onUpdate: () => {
+          const vec = curve.getPoint(orbData.t);
+          lightPoint.setPosition(vec.x, vec.y);
+          // Scale down slightly as it moves
+          lightPoint.setScale(1 - (orbData.t * 0.5));
+        },
         onComplete: () => {
           particles.stop();
           this.time.delayedCall(300, () => particles.destroy());
           
           // Flash effect upon absorption
-          const flash = this.add.circle(targetPos.x + 8, targetPos.y, 15, color)
+          const flash = this.add.circle(finalX, finalY, 15, color)
             .setDepth(11)
             .setAlpha(0.8);
           
@@ -812,9 +972,52 @@ export class GameScene extends Phaser.Scene {
         if (this.combo > 99) this.combo = 99;
         if (this.combo % 10 === 0) this.updateGold(10);
       }
+
+      // --- UI Updates ---
+      // Clear any existing fade tween
+      if (this.comboFadeTween) {
+        this.comboFadeTween.stop();
+        this.comboFadeTween = undefined;
+      }
+
+      this.comboLabel.setText(`${this.combo}`).setAlpha(1);
+      this.comboBg.setAlpha(1);
+      
+      // Prevent pop animation from interrupting itself too aggressively
+      if (!this.tweens.isTweening(this.comboBg)) {
+        // Pop animation
+        const originalScale = 0.5; // Fixed scale
+        this.comboBg.setScale(originalScale);
+        this.tweens.add({
+          targets: [this.comboBg],
+          scale: { from: originalScale * 1.2, to: originalScale },
+          duration: 100,
+          ease: "Back.easeOut"
+        });
+      }
+
+      // Add a delayed fade out to make it semi-transparent
+      this.comboFadeTween = this.tweens.add({
+        targets: [this.comboLabel, this.comboBg],
+        alpha: 0.3,
+        delay: 1500, // Wait 1.5s before fading
+        duration: 1000, // Take 1s to fade
+        ease: "Linear"
+      });
+
     } else {
       this.combo = 0;
+      
+      // --- UI Updates ---
+      if (this.comboFadeTween) {
+        this.comboFadeTween.stop();
+        this.comboFadeTween = undefined;
+      }
+      this.comboLabel.setAlpha(0);
+      this.comboBg.setAlpha(0);
     }
+    
+    // Still emit for other systems if needed, though UI is handled locally now
     this.events.emit("updateCombo", this.combo);
   }
 }
