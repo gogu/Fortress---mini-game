@@ -36,33 +36,33 @@ export class BootScene extends Phaser.Scene {
 
     // Load Unit assets
     this.load.spritesheet("friend_cyan", "/src/assets/units/friend_cyan.png", {
-      frameWidth: 768,
-      frameHeight: 512
+      frameWidth: 184,
+      frameHeight: 123
     });
     this.load.spritesheet("friend_orange", "/src/assets/units/friend_orange.png", {
-      frameWidth: 768,
-      frameHeight: 512
+      frameWidth: 184,
+      frameHeight: 123
     });
     this.load.spritesheet("friend_purple", "/src/assets/units/friend_purple.png", {
-      frameWidth: 768,
-      frameHeight: 512
+      frameWidth: 184,
+      frameHeight: 123
     });
 
     this.load.spritesheet("enemy_cyan", "/src/assets/units/enemy_cyan.png", {
-      frameWidth: 768,
-      frameHeight: 512
+      frameWidth: 184,
+      frameHeight: 123
     });
     this.load.spritesheet("enemy_orange", "/src/assets/units/enemy_orange.png", {
-      frameWidth: 768,
-      frameHeight: 512
+      frameWidth: 184,
+      frameHeight: 123
     });
     this.load.spritesheet("enemy_purple", "/src/assets/units/enemy_purple.png", {
-      frameWidth: 768,
-      frameHeight: 512
+      frameWidth: 184,
+      frameHeight: 123
     });
     this.load.spritesheet("enemy_elite", "/src/assets/units/enemy_elite.png", {
-      frameWidth: 768,
-      frameHeight: 512
+      frameWidth: 368,
+      frameHeight: 246
     });
   }
 

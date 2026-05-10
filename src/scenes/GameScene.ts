@@ -63,7 +63,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.anims.exists("friend_cyan_walk")) {
       this.anims.create({
         key: "friend_cyan_walk",
-        frames: this.anims.generateFrameNumbers("friend_cyan", { start: 0, end: 6 }),
+        frames: this.anims.generateFrameNumbers("friend_cyan", { start: 0, end: 7 }),
         frameRate: 8,
         repeat: -1
       });
@@ -71,7 +71,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.anims.exists("friend_orange_walk")) {
       this.anims.create({
         key: "friend_orange_walk",
-        frames: this.anims.generateFrameNumbers("friend_orange", { start: 0, end: 5 }),
+        frames: this.anims.generateFrameNumbers("friend_orange", { start: 0, end: 7 }),
         frameRate: 8,
         repeat: -1
       });
@@ -153,7 +153,7 @@ export class GameScene extends Phaser.Scene {
   private setupBackground() {
     this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0xefeadc).setOrigin(0).setDepth(0);
     this.add.image(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, "bg_notebook")
-      .setDisplaySize(SCREEN_WIDTH, SCREEN_HEIGHT)
+      .setScale(0.5)
       .setDepth(0)
       .setAlpha(0.9);
   }
@@ -180,7 +180,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Barracks
-    this.barracks = this.add.sprite(150, SCREEN_HEIGHT / 2 + 120, "bldg_barracks").setScale(0.35).setOrigin(0.8);
+    this.barracks = this.add.sprite(150, SCREEN_HEIGHT / 2 + 120, "bldg_barracks").setScale(0.5).setOrigin(0.8);
     this.physics.add.existing(this.barracks, true);
     if (this.barracks.body) (this.barracks.body as Phaser.Physics.Arcade.StaticBody).setSize(120, 100);
   }

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BULLET_SPEED, ENEMY_SPEED, FRIENDLY_SPEED, LANES, SCREEN_WIDTH, SCREEN_HEIGHT } from "./constants";
+import { BULLET_SPEED, ENEMY_SPEED, FRIENDLY_SPEED, LANES, SCREEN_WIDTH, SCREEN_HEIGHT, MODES, ENEMY_HP, ENEMY_ELITE_HP } from "./constants";
 
 export class Bullet extends Phaser.GameObjects.Rectangle {
   declare body: Phaser.Physics.Arcade.Body;
@@ -57,8 +57,8 @@ export class Bullet extends Phaser.GameObjects.Rectangle {
 
 export class Enemy extends Phaser.GameObjects.Sprite {
   declare body: Phaser.Physics.Arcade.Body;
-  public hp: number = 1;
-  public maxHp: number = 1;
+  public hp: number = ENEMY_HP;
+  public maxHp: number = ENEMY_HP;
   public speed: number = ENEMY_SPEED;
   public col: number = 0xffffff;
   public squadId: string = "";
@@ -70,7 +70,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   public eliteColorIdx: number = 0;
   public laneIndex: number = 0;
 
-  private eliteColors = [0x00f2ff, 0xff8c00, 0xa020f0];
+  private eliteColors = MODES.map(m => m.color);
   private eliteGlow: any = null;
   private eliteParticles: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
 
@@ -101,7 +101,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     
     this.col = color;
     this.speed = speed;
-    this.hp = 1;
+    this.hp = ENEMY_HP;
     this.squadId = squadId;
     this.laneIndex = laneIndex;
     this.isElite = isElite;
@@ -114,10 +114,10 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.setTint(0xffffff);
 
     if (isElite) {
-      this.setScale(0.24); // 200% size
+      this.setScale(0.5); // 50% size for elite (with 368x246 texture, visual size is preserved)
       this.setTexture("enemy_elite");
       this.play("enemy_elite_walk", true);
-      this.hp = 3; // Elites have more HP
+      this.hp = ENEMY_ELITE_HP;
 
       // Randomize initial color
       this.eliteColorIdx = Phaser.Math.Between(0, 2);
@@ -139,7 +139,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
         this.eliteParticles.setParticleTint(initialColor);
       }
     } else {
-      this.setScale(0.12);
+      this.setScale(0.5); // 50% size for normal enemy
       if (this.postFX && this.eliteGlow) {
         this.postFX.remove(this.eliteGlow);
         this.eliteGlow = null;
@@ -169,15 +169,13 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       // Set hitbox appropriately based on texture and scale.
       if (this.texture.key !== "white-pixel") {
         if (isElite) {
-          // Scaled by 0.24. Texture is 768x512.
-          // We want the hit box to cover the character properly.
-          // Let's use an unscaled size that fits the sprite tightly.
-          (this.body as Phaser.Physics.Arcade.Body).setSize(200, 250);
-          (this.body as Phaser.Physics.Arcade.Body).setOffset(284, 131);
+          // Scaled by 0.5. Texture is 368x246.
+          (this.body as Phaser.Physics.Arcade.Body).setSize(96, 120);
+          (this.body as Phaser.Physics.Arcade.Body).setOffset(136, 62);
         } else {
-          // Scaled by 0.12. 
-          (this.body as Phaser.Physics.Arcade.Body).setSize(300, 300);
-          (this.body as Phaser.Physics.Arcade.Body).setOffset(234, 106);
+          // Scaled by 0.5. Texture is 184x123.
+          (this.body as Phaser.Physics.Arcade.Body).setSize(72, 72);
+          (this.body as Phaser.Physics.Arcade.Body).setOffset(56, 26);
         }
       } else {
         (this.body as Phaser.Physics.Arcade.Body).setSize(30, 30);
@@ -268,17 +266,17 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     // Specific animation and scaling based on color
     if (color === 0x00f2ff) {
       this.setTexture("friend_cyan");
-      this.setScale(0.12);
+      this.setScale(0.5);
       this.play("friend_cyan_walk", true);
       this.setTint(0xffffff);
     } else if (color === 0xff8c00) {
       this.setTexture("friend_orange");
-      this.setScale(0.12);
+      this.setScale(0.5);
       this.play("friend_orange_walk", true);
       this.setTint(0xffffff);
     } else if (color === 0xa020f0) {
       this.setTexture("friend_purple");
-      this.setScale(0.12);
+      this.setScale(0.5);
       this.play("friend_purple_walk", true);
       this.setTint(0xffffff);
     } else {
@@ -290,8 +288,8 @@ export class Friendly extends Phaser.GameObjects.Sprite {
 
     if (this.body) {
       if (this.texture.key !== "white-pixel") {
-        (this.body as Phaser.Physics.Arcade.Body).setSize(300, 300);
-        (this.body as Phaser.Physics.Arcade.Body).setOffset(234, 106);
+        (this.body as Phaser.Physics.Arcade.Body).setSize(72, 72);
+        (this.body as Phaser.Physics.Arcade.Body).setOffset(56, 26);
       } else {
         (this.body as Phaser.Physics.Arcade.Body).setSize(30, 30);
         (this.body as Phaser.Physics.Arcade.Body).setOffset(0, 0);
@@ -341,10 +339,7 @@ export function spawnItem(scene: Phaser.Scene, x: number, y: number, type: "bomb
   // Use the loaded images
   const sprite = scene.add.image(0, 0, `item_drop_${type}`);
   
-  // The images were resized to 256px height, so we scale them down to around 108px (previous 144 * 0.75)
-  const targetSize = 108;
-  const scale = targetSize / Math.max(sprite.width, sprite.height);
-  sprite.setScale(scale);
+  sprite.setScale(0.5);
   
   // Add a rotating rainbow glow effect
   let glow: any = null;
@@ -361,8 +356,8 @@ export function spawnItem(scene: Phaser.Scene, x: number, y: number, type: "bomb
   // Scale bounce tween (pulsing effect)
   scene.tweens.add({
     targets: sprite,
-    scaleX: scale * 1.2,
-    scaleY: scale * 1.2,
+    scaleX: 0.6, // 0.5 * 1.2
+    scaleY: 0.6,
     duration: 200,
     yoyo: true,
     repeat: 1 // Bounce twice

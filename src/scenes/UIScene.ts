@@ -43,32 +43,32 @@ export class UIScene extends Phaser.Scene {
     // Top Right: Pause Button
     const pauseBtn = this.add.image(SCREEN_WIDTH - 60, 65, "ui_pause")
       .setOrigin(0.5)
-      .setScale(0.12)
+      .setScale(0.5)
       .setInteractive({ useHandCursor: true });
 
     pauseBtn.on("pointerover", () => {
-      pauseBtn.setScale(0.13);
+      pauseBtn.setScale(0.55);
       pauseBtn.setTint(0xdddddd);
     });
 
     pauseBtn.on("pointerout", () => {
-      pauseBtn.setScale(0.12);
+      pauseBtn.setScale(0.5);
       pauseBtn.clearTint();
     });
 
     pauseBtn.on("pointerdown", () => {
-      pauseBtn.setScale(0.11);
+      pauseBtn.setScale(0.45);
       pauseBtn.setTint(0xaaaaaa);
       this.togglePause();
     });
 
     pauseBtn.on("pointerup", () => {
-      pauseBtn.setScale(0.13);
+      pauseBtn.setScale(0.55);
       pauseBtn.setTint(0xdddddd);
     });
 
     // Top Right: Gold [Icon][Number] (Shifted left to avoid pause button)
-    this.goldIcon = this.add.image(SCREEN_WIDTH - 190, 65, "ui_icon_coin").setOrigin(0, 0.5).setScale(0.3);
+    this.goldIcon = this.add.image(SCREEN_WIDTH - 190, 65, "ui_icon_coin").setOrigin(0, 0.5).setScale(0.5);
     this.goldLabel = this.add.text(this.goldIcon.x + this.goldIcon.displayWidth + 5, 65, "0", { 
       fontFamily: "WuXin",
       fontSize: "22px", 
@@ -79,7 +79,7 @@ export class UIScene extends Phaser.Scene {
     // Center: Combo
     this.comboBg = this.add.image(SCREEN_WIDTH / 2 + 55, 120, "ui_combo_bg")
       .setOrigin(0.5)
-      .setScale(0.35)
+      .setScale(0.5)
       .setAlpha(0);
     
     this.comboLabel = this.add.text(SCREEN_WIDTH / 2 + 80, 105, "0", { 
@@ -139,7 +139,7 @@ export class UIScene extends Phaser.Scene {
 
     this.healthFillImage = this.add.image(this.hbFillX, this.hbFillY, "ui_health_bar_fill")
       .setOrigin(0)
-      .setDisplaySize(this.hbFillWidth, this.hbFillHeight);
+      .setScale(0.5);
 
     this.healthMaskShape = this.add.graphics();
     this.healthMaskShape.fillStyle(0xffffff);
@@ -195,7 +195,7 @@ export class UIScene extends Phaser.Scene {
 
     this.bombBtn = this.add.image(btnX, btnY, "ui_bomb")
       .setOrigin(0.5)
-      .setScale(0.12)
+      .setScale(0.5)
       .setInteractive({ useHandCursor: true });
 
     // Create 2 LED indicators below the bomb button
@@ -215,21 +215,21 @@ export class UIScene extends Phaser.Scene {
 
     this.bombBtn.on("pointerover", () => {
       if (this.bombBtn.alpha === 1) {
-        this.bombBtn.setScale(0.13);
+        this.bombBtn.setScale(0.55);
         this.bombBtn.setTint(0xdddddd);
       }
     });
 
     this.bombBtn.on("pointerout", () => {
       if (this.bombBtn.alpha === 1) {
-        this.bombBtn.setScale(0.12);
+        this.bombBtn.setScale(0.5);
         this.bombBtn.clearTint();
       }
     });
 
     this.bombBtn.on("pointerdown", () => {
       if (this.bombBtn.alpha === 1) {
-        this.bombBtn.setScale(0.11);
+        this.bombBtn.setScale(0.45);
         this.bombBtn.setTint(0xaaaaaa);
         this.scene.get("GameScene").events.emit("requestBomb");
       }
@@ -237,7 +237,7 @@ export class UIScene extends Phaser.Scene {
 
     this.bombBtn.on("pointerup", () => {
       if (this.bombBtn.alpha === 1) {
-        this.bombBtn.setScale(0.13);
+        this.bombBtn.setScale(0.55);
         this.bombBtn.setTint(0xdddddd);
       }
     });
