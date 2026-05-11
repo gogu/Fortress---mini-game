@@ -21,7 +21,6 @@ export class Bullet extends Phaser.GameObjects.Rectangle {
     this.setPosition(x, y);
     this.setActive(true);
     this.setVisible(true);
-    this.setMask((this.scene as any).gameMask);
     this.hasHit = false;
     this.hitTargets.clear();
     this.dmg = dmg;
@@ -99,7 +98,6 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.setPosition(x, y);
     this.setActive(true);
     this.setVisible(true);
-    this.setMask((this.scene as any).gameMask);
     
     this.col = color;
     this.speed = speed;
@@ -257,7 +255,6 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     this.setPosition(x, y);
     this.setActive(true);
     this.setVisible(true);
-    this.setMask((this.scene as any).gameMask);
     
     this.col = color;
     this.squadId = squadId;
@@ -342,7 +339,6 @@ export class Friendly extends Phaser.GameObjects.Sprite {
 
 export function spawnItem(scene: Phaser.Scene, x: number, y: number, type: "bomb" | "health" | "rage", target: Phaser.GameObjects.Components.Transform, onCollect: () => void) {
   const container = scene.add.container(x, y);
-  container.setMask((scene as any).gameMask);
   
   // Use the loaded images
   const sprite = scene.add.image(0, 0, `item_drop_${type}`);

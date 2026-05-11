@@ -160,18 +160,11 @@ export class UIScene extends Phaser.Scene {
     // Create Scanline Texture and Overlay
     this.createScanlineOverlay();
 
-    // Apply GameScene mask to overlay elements so they don't bleed outside the notebook area
-    const gameScene = this.scene.get("GameScene") as GameScene;
-    if (gameScene && gameScene.gameMask) {
-      this.pauseOverlayBg.setMask(gameScene.gameMask);
-      this.scanlineOverlay.setMask(gameScene.gameMask);
-    }
-
     // Right Side: Items (shifted down to avoid gold)
     this.rageLabel = this.add.text(SCREEN_WIDTH - 20, 180, "RAGE: 0s", { fontFamily: "WuXin", fontSize: "16px", color: "#4b0082" }).setOrigin(1, 0).setAlpha(0);
 
     // Bottom Left: FPS
-    this.fpsLabel = this.add.text(20, SCREEN_HEIGHT - 20, "FPS: 0", { fontFamily: "WuXin", fontSize: "14px", color: "#2f4f4f" }).setOrigin(0, 1);
+    this.fpsLabel = this.add.text(20, SCREEN_HEIGHT - 10, "FPS: 0", { fontFamily: "WuXin", fontSize: "14px", color: "#2f4f4f" }).setOrigin(0, 1);
 
     // ESC Key to Pause
     this.input.keyboard?.on("keydown-ESC", () => {

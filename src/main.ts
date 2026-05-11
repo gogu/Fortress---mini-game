@@ -12,6 +12,12 @@ const config: Phaser.Types.Core.GameConfig = {
   height: SCREEN_HEIGHT,
   parent: "game-container",
   backgroundColor: "#efeadc",
+  pixelArt: true, // Optimized for hand-drawn/pixel style, disables antialiasing
+  render: {
+    powerPreference: 'high-performance',
+    batchSize: 512,
+    roundPixels: true,
+  },
   physics: {
     default: "arcade",
     arcade: {

@@ -7,60 +7,60 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     // Load sounds
-    this.load.audio("change", "/src/sfx/change.wav");
-    this.load.audio("hitHurt", "/src/sfx/hitHurt.wav");
-    this.load.audio("laserShoot", "/src/sfx/laserShoot.wav");
-    this.load.audio("laserShootFailed", "/src/sfx/laserShootFailed.wav");
-    this.load.audio("playerHurt", "/src/sfx/playerHurt.wav");
+    this.load.audio("change", "/sfx/change.wav");
+    this.load.audio("hitHurt", "/sfx/hitHurt.wav");
+    this.load.audio("laserShoot", "/sfx/laserShoot.wav");
+    this.load.audio("laserShootFailed", "/sfx/laserShootFailed.wav");
+    this.load.audio("playerHurt", "/sfx/playerHurt.wav");
 
     // Load background
-    this.load.image("bg_notebook", "/src/assets/bg/bg_main_notebook.png");
+    this.load.image("bg_notebook", "/assets/bg/bg_main_notebook.png");
 
     // Load building assets
-    this.load.image("bldg_fortress", "/src/assets/buildings/bldg_fortress.png");
-    this.load.image("bldg_cannon_barrel", "/src/assets/buildings/bldg_cannon_barrel.png");
-    this.load.image("bldg_barracks", "/src/assets/buildings/bldg_barracks.png");
+    this.load.image("bldg_fortress", "/assets/buildings/bldg_fortress.png");
+    this.load.image("bldg_cannon_barrel", "/assets/buildings/bldg_cannon_barrel.png");
+    this.load.image("bldg_barracks", "/assets/buildings/bldg_barracks.png");
 
     // Load UI assets
-    this.load.image("ui_health_bar_frame", "/src/assets/ui/ui_health_bar_frame.png");
-    this.load.image("ui_health_bar_fill", "/src/assets/ui/ui_health_bar_fill.png");
-    this.load.image("ui_icon_coin", "/src/assets/ui/ui_icon_coin.png");
-    this.load.image("ui_pause", "/src/assets/ui/ui_pause.png");
-    this.load.image("ui_bomb", "/src/assets/ui/ui_bomb.png");
-    this.load.image("ui_combo_bg", "/src/assets/ui/ui_combo_bg.png");
+    this.load.image("ui_health_bar_frame", "/assets/ui/ui_health_bar_frame.png");
+    this.load.image("ui_health_bar_fill", "/assets/ui/ui_health_bar_fill.png");
+    this.load.image("ui_icon_coin", "/assets/ui/ui_icon_coin.png");
+    this.load.image("ui_pause", "/assets/ui/ui_pause.png");
+    this.load.image("ui_bomb", "/assets/ui/ui_bomb.png");
+    this.load.image("ui_combo_bg", "/assets/ui/ui_combo_bg.png");
 
     // Load Item assets
-    this.load.image("item_drop_bomb", "/src/assets/items/item_drop_bomb.png");
-    this.load.image("item_drop_health", "/src/assets/items/item_drop_health.png");
-    this.load.image("item_drop_rage", "/src/assets/items/item_drop_rage.png");
+    this.load.image("item_drop_bomb", "/assets/items/item_drop_bomb.png");
+    this.load.image("item_drop_health", "/assets/items/item_drop_health.png");
+    this.load.image("item_drop_rage", "/assets/items/item_drop_rage.png");
 
     // Load Unit assets
-    this.load.spritesheet("friend_cyan", "/src/assets/units/friend_cyan.png", {
+    this.load.spritesheet("friend_cyan", "/assets/units/friend_cyan.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("friend_orange", "/src/assets/units/friend_orange.png", {
+    this.load.spritesheet("friend_orange", "/assets/units/friend_orange.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("friend_purple", "/src/assets/units/friend_purple.png", {
+    this.load.spritesheet("friend_purple", "/assets/units/friend_purple.png", {
       frameWidth: 184,
       frameHeight: 123
     });
 
-    this.load.spritesheet("enemy_cyan", "/src/assets/units/enemy_cyan.png", {
+    this.load.spritesheet("enemy_cyan", "/assets/units/enemy_cyan.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("enemy_orange", "/src/assets/units/enemy_orange.png", {
+    this.load.spritesheet("enemy_orange", "/assets/units/enemy_orange.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("enemy_purple", "/src/assets/units/enemy_purple.png", {
+    this.load.spritesheet("enemy_purple", "/assets/units/enemy_purple.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("enemy_elite", "/src/assets/units/enemy_elite.png", {
+    this.load.spritesheet("enemy_elite", "/assets/units/enemy_elite.png", {
       frameWidth: 368,
       frameHeight: 246
     });

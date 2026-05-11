@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import { 
   MODES, SCREEN_WIDTH, SCREEN_HEIGHT, SQUAD_SIZE, LANES, 
-  HEALTH_MAX, ENEMY_SPEED, FRIENDLY_SPEED, WIN_CONDITION, SHOW_DEBUG_VISUALS, SCORE_PER_UNIT
+  HEALTH_MAX, ENEMY_SPEED, FRIENDLY_SPEED, WIN_CONDITION, SHOW_DEBUG_VISUALS, SCORE_PER_UNIT,
+  ENEMY_SPAWN_INTERVAL, ENEMY_SPAWN_SQUADS_PER_INTERVAL
 } from "../constants";
 import { spawnParticles, getMultiplier, spawnMultiplier } from "../utils";
 import { Bullet, Enemy, Friendly, spawnItem } from "../entities";
@@ -36,6 +37,7 @@ export class GameScene extends Phaser.Scene {
   private fortressCore!: Phaser.GameObjects.Sprite;
   private barracks!: Phaser.GameObjects.Sprite;
   private cdBar!: Phaser.GameObjects.Graphics;
+  private aimLine!: Phaser.GameObjects.Graphics;
 
   // --- UI Elements ---
   private comboBg!: Phaser.GameObjects.Image;
@@ -157,6 +159,39 @@ export class GameScene extends Phaser.Scene {
     this.updateUnitLogic();
     this.checkBoundaries();
     this.updateCDBar(time);
+    this.updateAimLine();
+  }
+
+  private updateAimLine() {
+    this.aimLine.clear();
+    const pointer = this.input.activePointer;
+    const mode = MODES[this.weaponMode];
+    const isRage = this.rageRemaining > 0;
+    const color = isRage ? 0xffffff : mode.color;
+
+    // Calculate barrel tip position
+    const barrelLength = (1 - this.fortressCore.originX) * this.fortressCore.width * this.fortressCore.scaleX;
+    const startX = this.fortressCore.x + Math.cos(this.fortressCore.rotation) * barrelLength;
+    const startY = this.fortressCore.y + Math.sin(this.fortressCore.rotation) * barrelLength;
+
+    this.aimLine.lineStyle(2, color, 0.6);
+    
+    // Draw dashed line towards pointer
+    const dist = Phaser.Math.Distance.Between(startX, startY, pointer.x, pointer.y);
+    const dashLen = 10;
+    const gapLen = 10;
+    const totalSteps = Math.floor(dist / (dashLen + gapLen));
+    
+    const cos = Math.cos(this.fortressCore.rotation);
+    const sin = Math.sin(this.fortressCore.rotation);
+
+    for (let i = 0; i < totalSteps; i++) {
+      const x1 = startX + cos * i * (dashLen + gapLen);
+      const y1 = startY + sin * i * (dashLen + gapLen);
+      const x2 = x1 + cos * dashLen;
+      const y2 = y1 + sin * dashLen;
+      this.aimLine.lineBetween(x1, y1, x2, y2);
+    }
   }
 
   private updateCDBar(time: number) {
@@ -225,8 +260,6 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  public gameMask!: Phaser.Display.Masks.GeometryMask;
-
   // --- Setup Methods ---
 
   private setupBackground() {
@@ -235,14 +268,6 @@ export class GameScene extends Phaser.Scene {
       .setScale(0.5)
       .setDepth(-1)
       .setAlpha(0.9);
-
-    // Create a geometry mask based on the notebook's display bounds
-    const maskShape = this.make.graphics();
-    maskShape.fillStyle(0xffffff);
-    // Assuming the notebook has a slight margin, we define the printable area.
-    // Using a safe estimate: 40px margin horizontally, 30px vertically.
-    maskShape.fillRect(40, 30, SCREEN_WIDTH - 60, SCREEN_HEIGHT - 60);
-    this.gameMask = maskShape.createGeometryMask();
 
     // Center: Combo (Depth -0.8 to render behind units (0) but above background (-1))
     this.comboBg = this.add.image(SCREEN_WIDTH / 2 + 55, 120, "ui_combo_bg")
@@ -297,7 +322,6 @@ export class GameScene extends Phaser.Scene {
   private setupFinishLine() {
     const graphics = this.add.graphics();
     graphics.setDepth(-0.5); // Above background (-1), below game elements (0)
-    graphics.setMask(this.gameMask);
     
     const x = SCREEN_WIDTH - 60; // Slightly inside to be visible
     const dashLength = 20;
@@ -341,11 +365,9 @@ export class GameScene extends Phaser.Scene {
     this.fortress = this.add.sprite(130, SCREEN_HEIGHT / 2, "bldg_fortress").setScale(0.5).setOrigin(0.5);
     this.physics.add.existing(this.fortress, true);
     if (this.fortress.body) (this.fortress.body as Phaser.Physics.Arcade.StaticBody).setSize(120, 160);
-    this.fortress.setMask(this.gameMask);
     
     // Fortress Barrel
     this.fortressCore = this.add.sprite(this.fortress.x + 35, this.fortress.y, "bldg_cannon_barrel").setScale(0.5).setOrigin(0.2, 0.5);
-    this.fortressCore.setMask(this.gameMask);
     
     // Glow FX for Mode Hint
     if (this.fortress.postFX) {
@@ -357,10 +379,13 @@ export class GameScene extends Phaser.Scene {
     this.barracks = this.add.sprite(160, SCREEN_HEIGHT / 2 + 120, "bldg_barracks").setScale(0.5).setOrigin(0.8);
     this.physics.add.existing(this.barracks, true);
     if (this.barracks.body) (this.barracks.body as Phaser.Physics.Arcade.StaticBody).setSize(120, 100);
-    this.barracks.setMask(this.gameMask);
 
     // Cooldown Bar
     this.cdBar = this.add.graphics();
+
+    // Aiming Line
+    this.aimLine = this.add.graphics();
+    this.aimLine.setDepth(-0.4);
   }
 
   private setupInput() {
@@ -412,7 +437,7 @@ export class GameScene extends Phaser.Scene {
 
   private setupLoops() {
     this.time.addEvent({ delay: 3000, callback: this.autoProduce, callbackScope: this, loop: true });
-    this.time.addEvent({ delay: 3000, callback: this.spawnEnemySquad, callbackScope: this, loop: true });
+    this.time.addEvent({ delay: ENEMY_SPAWN_INTERVAL, callback: this.spawnEnemySquad, callbackScope: this, loop: true });
     this.time.addEvent({ 
       delay: 10000, 
       callback: () => { if (Math.random() < 0.33) this.spawnElite(); }, 
@@ -575,22 +600,27 @@ export class GameScene extends Phaser.Scene {
   // --- Spawning ---
 
   private spawnEnemySquad() {
-    const colorIndex = Phaser.Math.Between(0, 2);
-    const squadId = `e_squad_${this.time.now}`;
-    const laneIndex = Phaser.Math.Between(0, LANES.length - 1);
-    const laneY = LANES[laneIndex];
+    const laneIndices = Phaser.Utils.Array.NumberArray(0, LANES.length - 1) as number[];
+    Phaser.Utils.Array.Shuffle(laneIndices);
 
-    for (let i = 0; i < SQUAD_SIZE; i++) {
-      this.time.delayedCall(i * 150, () => {
-        const e = this.enemies.get() as Enemy;
-        if (e) {
-          let spawnY = laneY + Phaser.Math.Between(-20, 20);
-          // Constrain Y to keep sprite within mask bounds (y:30 to 570)
-          // Enemy scale is 0.5, so rough height is ~60px (±30 from origin)
-          spawnY = Phaser.Math.Clamp(spawnY, 60, SCREEN_HEIGHT - 60);
-          e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, ENEMY_SPEED, squadId, laneIndex, false);
-        }
-      });
+    for (let s = 0; s < ENEMY_SPAWN_SQUADS_PER_INTERVAL; s++) {
+      const laneIndex = laneIndices[s % laneIndices.length];
+      const colorIndex = Phaser.Math.Between(0, 2);
+      const squadId = `e_squad_${this.time.now}_${s}`;
+      const laneY = LANES[laneIndex];
+
+      for (let i = 0; i < SQUAD_SIZE; i++) {
+        this.time.delayedCall(i * 150, () => {
+          const e = this.enemies.get() as Enemy;
+          if (e) {
+            let spawnY = laneY + Phaser.Math.Between(-20, 20);
+            // Constrain Y to keep sprite within mask bounds (y:30 to 570)
+            // Enemy scale is 0.5, so rough height is ~60px (±30 from origin)
+            spawnY = Phaser.Math.Clamp(spawnY, 60, SCREEN_HEIGHT - 60);
+            e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, ENEMY_SPEED, squadId, laneIndex, false);
+          }
+        });
+      }
     }
   }
 
@@ -804,7 +834,6 @@ export class GameScene extends Phaser.Scene {
 
   private createExplosion(x: number, y: number, color: number, dmg: number) {
     const circle = this.add.circle(x, y, 50, color, 0.3);
-    circle.setMask(this.gameMask);
     this.physics.add.existing(circle);
     if (circle.body && 'setCircle' in circle.body) (circle.body as Phaser.Physics.Arcade.Body).setCircle(50);
     this.physics.add.overlap(circle, this.enemies, (_, e) => {

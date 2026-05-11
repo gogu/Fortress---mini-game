@@ -7,7 +7,7 @@ export const MODES = [
 export const SCREEN_WIDTH = 800;
 export const SCREEN_HEIGHT = 600;
 export const HEALTH_MAX = 100;
-export const ENEMY_SPEED = 150;
+export const ENEMY_SPEED = 75;
 export const ENEMY_HP = 1;
 export const ENEMY_ELITE_HP = 1;
 export const FRIENDLY_SPEED = 100;
@@ -17,6 +17,8 @@ export const SQUAD_SIZE = 3;
 export const UNIT_COST = 1;
 export const SCORE_PER_UNIT = 1;
 export const WIN_CONDITION = 50;
+export const ENEMY_SPAWN_INTERVAL = 3000;
+export const ENEMY_SPAWN_SQUADS_PER_INTERVAL = 2;
 
 export const LANES = [120, 220, 320, 420, 520];
 
