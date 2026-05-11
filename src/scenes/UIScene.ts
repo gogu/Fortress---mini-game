@@ -1,6 +1,7 @@
 import Phaser from "phaser";
-import { SCREEN_WIDTH, SCREEN_HEIGHT, WIN_CONDITION, MODES } from "../constants";
+import { SCREEN_WIDTH, SCREEN_HEIGHT, MODES } from "../constants";
 import { GameScene } from "./GameScene";
+import { ILevelConfig } from "../managers/LevelManager";
 
 export class UIScene extends Phaser.Scene {
   private goldLabel!: Phaser.GameObjects.Text;
@@ -11,6 +12,12 @@ export class UIScene extends Phaser.Scene {
   private goldStartY: number = 350; // Target Y coordinate over the Barracks
   private victoryLabel!: Phaser.GameObjects.Text;
   private successTexts: Phaser.GameObjects.Text[] = [];
+  private successBlocks: Phaser.GameObjects.Rectangle[] = [];
+  private levelNameLabel!: Phaser.GameObjects.Text;
+  private timerLabel!: Phaser.GameObjects.Text;
+  private currentLevelConfig: ILevelConfig | null = null;
+  private levelTimeElapsed: number = 0;
+
   private comboLabel!: Phaser.GameObjects.Text;
   private comboBg!: Phaser.GameObjects.Image;
   private rageLabel!: Phaser.GameObjects.Text;
@@ -40,50 +47,76 @@ export class UIScene extends Phaser.Scene {
   init() {
   }
 
+  private mainUIContainer!: Phaser.GameObjects.Container;
+
   create() {
     this.currentGold = 0;
     this.isPaused = false;
     this.successTexts = [];
     this.bombLeds = [];
 
+    // Create all UI and wrap it in a container to manage visibility
+    this.mainUIContainer = this.add.container(0, 0).setAlpha(0);
+
     this.createTopBar();
     this.createHealthBar();
     this.createVictoryProgress();
     this.createGoldUI();
     this.createBombButton();
+    
     this.setupEventBindings();
+    this.createTitleScreen();
   }
 
-  private createGoldUI() {
-    const startX = 90;
-    const startY = this.goldStartY;
-
-    // Hard white outline using a slightly larger, white-tinted silhouette behind the icon
-    this.add.image(startX, startY, "ui_icon_coin")
-      .setOrigin(0.5)
-      .setScale(0.6)
-      .setTintFill(0xffffff);
-
-    // Main Gold Icon
-    this.goldIcon = this.add.image(startX, startY, "ui_icon_coin").setOrigin(0.5).setScale(0.5);
-
-    // Gold Label with hard white stroke
-    this.goldLabel = this.add.text(this.goldIcon.x + this.goldIcon.displayWidth/2 + 5, startY, "0", { 
+  private createTitleScreen() {
+    const overlay = this.add.container(0, 0).setDepth(200);
+    
+    // NO dim background as requested. Just title and button.
+    
+    const title = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 80, "堡垒哨兵：最后防线", {
       fontFamily: "WuXin",
-      fontSize: "22px", 
-      color: "#8b4513",
-      fontStyle: "bold",
+      fontSize: "80px",
+      color: "#000000", // Darker to contrast with the notebook bg
       stroke: "#ffffff",
-      strokeThickness: 5
-    }).setOrigin(0, 0.5);
+      strokeThickness: 10
+    }).setOrigin(0.5);
 
-    // Create a mask for the gold rolling effect
-    const maskShape = this.make.graphics();
-    maskShape.fillStyle(0xffffff);
-    // Mask covers the text area slightly around the baseline
-    maskShape.fillRect(this.goldLabel.x, startY - 20, 200, 40);
-    this.goldMask = maskShape.createGeometryMask();
-    this.goldLabel.setMask(this.goldMask);
+    const startBtn = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 100, "开始游戏", {
+      fontFamily: "WuXin",
+      fontSize: "48px",
+      color: "#ffffff",
+      backgroundColor: "#4a4a4a",
+      padding: { x: 40, y: 20 }
+    })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    overlay.add([title, startBtn]);
+
+    startBtn.on("pointerover", () => startBtn.setTint(0x00ff00));
+    startBtn.on("pointerout", () => startBtn.clearTint());
+    startBtn.on("pointerdown", () => {
+      // Disable start button immediately to prevent double clicks
+      startBtn.disableInteractive();
+      
+      this.tweens.add({
+        targets: overlay,
+        alpha: 0,
+        duration: 500,
+        onComplete: () => {
+          overlay.destroy();
+          
+          // Fade in main UI
+          this.tweens.add({
+            targets: this.mainUIContainer,
+            alpha: 1,
+            duration: 800
+          });
+
+          this.scene.get("GameScene").events.emit("startGame");
+        }
+      });
+    });
   }
 
   private createTopBar() {
@@ -92,8 +125,11 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScale(0.5)
       .setInteractive({ useHandCursor: true });
+    
+    this.mainUIContainer.add(pauseBtn);
 
     pauseBtn.on("pointerover", () => {
+      if (this.mainUIContainer.alpha < 1) return; // Prevent pause until UI shown
       pauseBtn.setScale(0.55);
       pauseBtn.setTint(0xdddddd);
     });
@@ -104,6 +140,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     pauseBtn.on("pointerdown", () => {
+      if (this.mainUIContainer.alpha < 1) return; // Prevent pause until UI shown
       pauseBtn.setScale(0.45);
       pauseBtn.setTint(0xaaaaaa);
       this.togglePause();
@@ -167,17 +204,21 @@ export class UIScene extends Phaser.Scene {
 
     // Right Side: Items (shifted down to avoid gold)
     this.rageLabel = this.add.text(SCREEN_WIDTH - 20, 180, "RAGE: 0s", { fontFamily: "WuXin", fontSize: "16px", color: "#4b0082" }).setOrigin(1, 0).setAlpha(0);
+    this.mainUIContainer.add(this.rageLabel);
 
     // Bottom Left: FPS
     this.fpsLabel = this.add.text(20, SCREEN_HEIGHT - 10, "FPS: 0", { fontFamily: "WuXin", fontSize: "14px", color: "#2f4f4f" }).setOrigin(0, 1);
+    this.mainUIContainer.add(this.fpsLabel);
 
     // ESC Key to Pause
     this.input.keyboard?.on("keydown-ESC", () => {
+      if (this.mainUIContainer.alpha < 1) return; // Prevent pause until UI shown
       this.togglePause();
     });
 
     // Auto-pause when game window loses focus
     this.game.events.on(Phaser.Core.Events.BLUR, () => {
+      if (this.mainUIContainer.alpha < 1) return; // Prevent pause until UI shown
       if (!this.isPaused && this.scene.isActive("GameScene")) {
         this.togglePause();
       }
@@ -257,7 +298,7 @@ export class UIScene extends Phaser.Scene {
     const hbX = 50;
     const hbY = 40;
 
-    this.add.image(hbX, hbY, "ui_health_bar_frame")
+    const frame = this.add.image(hbX, hbY, "ui_health_bar_frame")
       .setOrigin(0)
       .setScale(hbScale);
 
@@ -284,36 +325,55 @@ export class UIScene extends Phaser.Scene {
       "100/100", 
       { fontFamily: "WuXin", fontSize: "12px", color: "#ffffff", fontStyle: "bold" }
     ).setOrigin(0.5);
+
+    this.mainUIContainer.add([frame, this.healthFillImage, this.healthText]);
   }
 
   private createVictoryProgress() {
-    const startX = 60; // Moved right slightly
-    const startY = 105; // Moved down 5 more pixels
+    const startX = 60; 
+    const startY = 105; 
 
-    this.victoryLabel = this.add.text(startX, startY, "胜利目标:", { 
+    // Level Name Label
+    this.levelNameLabel = this.add.text(startX, startY - 25, "Wave 1", {
+      fontFamily: "WuXin",
+      fontSize: "20px",
+      color: "#000000",
+      fontStyle: "bold"
+    }).setOrigin(0, 0.5);
+
+    this.victoryLabel = this.add.text(startX, startY, "目标:", { 
       fontFamily: "WuXin",
       fontSize: "14px", 
       color: "#444444", 
       fontStyle: "bold" 
     }).setOrigin(0, 0.5);
 
-    let currentX = startX + 75; // Adjusted starting X for blocks
+    this.timerLabel = this.add.text(startX + 45, startY, "00:00", {
+      fontFamily: "WuXin",
+      fontSize: "14px",
+      color: "#333333"
+    }).setOrigin(0, 0.5).setVisible(false);
+
+    this.mainUIContainer.add([this.levelNameLabel, this.victoryLabel, this.timerLabel]);
+
+    let currentX = startX + 45; 
 
     this.successTexts = [];
+    this.successBlocks = [];
     for (let i = 0; i < 3; i++) {
-      // Color block (Using colors mapped from global MODES constants)
-      this.add.rectangle(currentX, startY, 12, 12, MODES[i].color)
+      const block = this.add.rectangle(currentX, startY, 12, 12, MODES[i].color)
         .setOrigin(0, 0.5)
         .setStrokeStyle(1, 0x000000, 0.5);
+      this.successBlocks.push(block);
       
-      // Progress text
-      const txt = this.add.text(currentX + 16, startY, `0/${WIN_CONDITION}`, { 
+      const txt = this.add.text(currentX + 16, startY, `0/0`, { 
         fontFamily: "WuXin",
         fontSize: "12px", 
         color: "#333333" 
       }).setOrigin(0, 0.5);
       
       this.successTexts.push(txt);
+      this.mainUIContainer.add([block, txt]);
       currentX += 60;
     }
   }
@@ -326,6 +386,8 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScale(0.5)
       .setInteractive({ useHandCursor: true });
+
+    this.mainUIContainer.add(this.bombBtn);
 
     // Create 2 LED indicators below the bomb button
     this.bombLeds = [];
@@ -340,9 +402,11 @@ export class UIScene extends Phaser.Scene {
         .setAlpha(0.3)
         .setStrokeStyle(1, 0x005500);
       this.bombLeds.push(led);
+      this.mainUIContainer.add(led);
     }
 
     this.bombBtn.on("pointerover", () => {
+      if (this.mainUIContainer.alpha < 1) return;
       if (this.bombBtn.tintTopLeft === 0xffffff) {
         this.bombBtn.setScale(0.55);
         this.bombBtn.setTint(0xdddddd);
@@ -358,6 +422,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     this.bombBtn.on("pointerdown", () => {
+      if (this.mainUIContainer.alpha < 1) return;
       if (this.bombBtn.tintTopLeft === 0xffffff || this.bombBtn.tintTopLeft === 0xdddddd) {
         this.bombBtn.setScale(0.45);
         this.bombBtn.setTint(0xaaaaaa);
@@ -373,21 +438,49 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
+  private createGoldUI() {
+    const startX = 90;
+    const startY = this.goldStartY;
+
+    // Hard white outline using a slightly larger, white-tinted silhouette behind the icon
+    const outline = this.add.image(startX, startY, "ui_icon_coin")
+      .setOrigin(0.5)
+      .setScale(0.6)
+      .setTintFill(0xffffff);
+
+    // Main Gold Icon
+    this.goldIcon = this.add.image(startX, startY, "ui_icon_coin").setOrigin(0.5).setScale(0.5);
+
+    // Gold Label with hard white stroke
+    this.goldLabel = this.add.text(this.goldIcon.x + this.goldIcon.displayWidth/2 + 5, startY, "0", { 
+      fontFamily: "WuXin",
+      fontSize: "22px", 
+      color: "#8b4513",
+      fontStyle: "bold",
+      stroke: "#ffffff",
+      strokeThickness: 5
+    }).setOrigin(0, 0.5);
+
+    // Create a mask for the gold rolling effect
+    const maskShape = this.make.graphics();
+    maskShape.fillStyle(0xffffff);
+    // Mask covers the text area slightly around the baseline
+    maskShape.fillRect(this.goldLabel.x, startY - 20, 200, 40);
+    this.goldMask = maskShape.createGeometryMask();
+    this.goldLabel.setMask(this.goldMask);
+
+    this.mainUIContainer.add([outline, this.goldIcon, this.goldLabel]);
+  }
+
   private setupEventBindings() {
     const gameScene = this.scene.get("GameScene");
-
-    // Clean up existing listeners if this instance is reused
-    gameScene.events.off("updateHealth", this.onUpdateHealth, this);
-    gameScene.events.off("updateGold", this.onUpdateGold, this);
-    gameScene.events.off("updateSuccess", this.onUpdateSuccess, this);
-    gameScene.events.off("updateBombs", this.onUpdateBombs, this);
-    gameScene.events.off("updateRage", this.onUpdateRage, this);
 
     gameScene.events.on("updateHealth", this.onUpdateHealth, this);
     gameScene.events.on("updateGold", this.onUpdateGold, this);
     gameScene.events.on("updateSuccess", this.onUpdateSuccess, this);
     gameScene.events.on("updateBombs", this.onUpdateBombs, this);
     gameScene.events.on("updateRage", this.onUpdateRage, this);
+    gameScene.events.on("levelChanged", this.onLevelChanged, this);
 
     this.events.once("shutdown", () => {
       gameScene.events.off("updateHealth", this.onUpdateHealth, this);
@@ -395,6 +488,7 @@ export class UIScene extends Phaser.Scene {
       gameScene.events.off("updateSuccess", this.onUpdateSuccess, this);
       gameScene.events.off("updateBombs", this.onUpdateBombs, this);
       gameScene.events.off("updateRage", this.onUpdateRage, this);
+      gameScene.events.off("levelChanged", this.onLevelChanged, this);
     });
   }
 
@@ -466,22 +560,62 @@ export class UIScene extends Phaser.Scene {
     this.currentGold = gold;
   }
 
+  private onLevelChanged(config: ILevelConfig) {
+    this.currentLevelConfig = config;
+    this.levelTimeElapsed = 0;
+    this.levelNameLabel.setText(config.name);
+
+    if (config.nextLevelCondition.type === "time") {
+      this.timerLabel.setVisible(true);
+      this.successBlocks.forEach(b => b.setVisible(false));
+      this.successTexts.forEach(t => t.setVisible(false));
+      this.victoryLabel.setText("坚持生存:");
+      this.timerLabel.setX(this.victoryLabel.x + this.victoryLabel.width + 5);
+    } else {
+      this.timerLabel.setVisible(false);
+      this.successBlocks.forEach(b => b.setVisible(true));
+      this.successTexts.forEach(t => t.setVisible(true));
+      this.victoryLabel.setText("目标:");
+      
+      // Update success texts with new goal
+      const gameScene = this.scene.get("GameScene") as any;
+      if (gameScene.successCounts) {
+        this.onUpdateSuccess(gameScene.successCounts);
+      }
+    }
+
+    // Flash level name
+    this.levelNameLabel.setScale(1.5);
+    this.tweens.add({
+      targets: this.levelNameLabel,
+      scale: 1,
+      duration: 500,
+      ease: "Back.easeOut"
+    });
+  }
+
   private onUpdateSuccess(counts: number[]) {
+    let goal: string | number = "--";
+
+    if (this.currentLevelConfig) {
+      if (this.currentLevelConfig.nextLevelCondition.type === "score") {
+        goal = this.currentLevelConfig.nextLevelCondition.value;
+      } else {
+        goal = "∞"; 
+      }
+    }
+
     counts.forEach((count, i) => {
       const textObj = this.successTexts[i];
       if (textObj) {
         const prevText = textObj.text;
-        const newText = `${count}/${WIN_CONDITION}`;
-        
+        const newText = `${count}/${goal}`;
+
         if (prevText !== newText) {
           textObj.setText(newText);
-          
-          // Kill any existing tweens on this object to prevent scale accumulation
+
           this.tweens.killTweensOf(textObj);
-          // Reset base scale before jumping
           textObj.setScale(1);
-          
-          // Jumping animation: scale up and back down
           this.tweens.add({
             targets: textObj,
             scale: 1.4,
@@ -507,7 +641,6 @@ export class UIScene extends Phaser.Scene {
       this.bombBtn.setTint(0xffffff);
       this.bombBtn.input!.cursor = "pointer";
     } else {
-      // Disabled state: Lighter gray tint, full opacity
       this.bombBtn.setTint(0x888888);
       this.bombBtn.input!.cursor = "default";
     }
@@ -521,7 +654,17 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
-  update() {
+  update(time: number, delta: number) {
     this.fpsLabel.setText(`FPS: ${Math.round(this.game.loop.actualFps)}`);
+
+    if (this.isPaused) return;
+
+    if (this.currentLevelConfig && this.currentLevelConfig.nextLevelCondition.type === "time") {
+      this.levelTimeElapsed += delta;
+      const remaining = Math.max(0, this.currentLevelConfig.nextLevelCondition.value - this.levelTimeElapsed);
+      const seconds = Math.floor(remaining / 1000);
+      const ms = Math.floor((remaining % 1000) / 10);
+      this.timerLabel.setText(`${seconds.toString().padStart(2, "0")}:${ms.toString().padStart(2, "0")}`);
+    }
   }
 }

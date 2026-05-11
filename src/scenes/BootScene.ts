@@ -64,6 +64,9 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 368,
       frameHeight: 246
     });
+
+    // Load Level Configuration
+    this.load.json("levels", "/levels.json");
   }
 
   create() {

@@ -1,0 +1,154 @@
+{
+  "levels": [
+    {
+      "id": 1,
+      "name": "第一波：射击与色彩",
+      "enemySpawnInterval": 4000,
+      "enemySpawnSquads": 1,
+      "enemySpeed": 50,
+      "eliteSpawnChance": 0,
+      "colorWeights": [1, 0, 0],
+      "friendlySpawnInterval": 3000,
+      "friendlyUnitCost": 1,
+      "nextLevelCondition": {
+        "type": "score",
+        "value": 2
+      }
+    },
+    {
+      "id": 2,
+      "name": "第二波：武器切换",
+      "enemySpawnInterval": 3500,
+      "enemySpawnSquads": 1,
+      "enemySpeed": 60,
+      "eliteSpawnChance": 0,
+      "colorWeights": [0.34, 0.33, 0.33],
+      "friendlySpawnInterval": 3000,
+      "friendlyUnitCost": 1,
+      "nextLevelCondition": {
+        "type": "score",
+        "value": 3
+      }
+    },
+    {
+      "id": 3,
+      "name": "第三波：精英与道具",
+      "enemySpawnInterval": 3000,
+      "enemySpawnSquads": 2,
+      "enemySpeed": 65,
+      "eliteSpawnChance": 0.5,
+      "colorWeights": [0.34, 0.33, 0.33],
+      "friendlySpawnInterval": 3000,
+      "friendlyUnitCost": 1,
+      "nextLevelCondition": {
+        "type": "time",
+        "value": 30000
+      }
+    },
+    {
+      "id": 4,
+      "name": "第四波：青色虫群",
+      "enemySpawnInterval": 2000,
+      "enemySpawnSquads": 1,
+      "enemySpeed": 95,
+      "eliteSpawnChance": 0.05,
+      "colorWeights": [0.8, 0.1, 0.1],
+      "friendlySpawnInterval": 2500,
+      "friendlyUnitCost": 1,
+      "nextLevelCondition": {
+        "type": "score",
+        "value": 10
+      }
+    },
+    {
+      "id": 5,
+      "name": "第五波：重装方阵",
+      "enemySpawnInterval": 3500,
+      "enemySpawnSquads": 3,
+      "enemySpeed": 55,
+      "eliteSpawnChance": 0.05,
+      "colorWeights": [0.1, 0.25, 0.65],
+      "friendlySpawnInterval": 4000,
+      "friendlyUnitCost": 2,
+      "nextLevelCondition": {
+        "type": "score",
+        "value": 5
+      }
+    },
+    {
+      "id": 6,
+      "name": "第六波：火力压制",
+      "enemySpawnInterval": 2500,
+      "enemySpawnSquads": 2,
+      "enemySpeed": 75,
+      "eliteSpawnChance": 0.1,
+      "colorWeights": [0.33, 0.34, 0.33],
+      "friendlySpawnInterval": 3000,
+      "friendlyUnitCost": 1,
+      "nextLevelCondition": {
+        "type": "time",
+        "value": 45000
+      }
+    },
+    {
+      "id": 7,
+      "name": "第七波：彩虹突击",
+      "enemySpawnInterval": 1800,
+      "enemySpawnSquads": 2,
+      "enemySpeed": 90,
+      "eliteSpawnChance": 0.25,
+      "colorWeights": [0.33, 0.33, 0.34],
+      "friendlySpawnInterval": 1200,
+      "friendlyUnitCost": 1,
+      "nextLevelCondition": {
+        "type": "score",
+        "value": 25
+      }
+    },
+    {
+      "id": 8,
+      "name": "第八波：精英护卫军",
+      "enemySpawnInterval": 4000,
+      "enemySpawnSquads": 2,
+      "enemySpeed": 70,
+      "eliteSpawnChance": 0.4,
+      "colorWeights": [0.3, 0.4, 0.3],
+      "friendlySpawnInterval": 3500,
+      "friendlyUnitCost": 2,
+      "nextLevelCondition": {
+        "type": "score",
+        "value": 30
+      }
+    },
+    {
+      "id": 9,
+      "name": "第九波：全面围攻",
+      "enemySpawnInterval": 1500,
+      "enemySpawnSquads": 3,
+      "enemySpeed": 90,
+      "eliteSpawnChance": 0.1,
+      "colorWeights": [0.33, 0.33, 0.34],
+      "friendlySpawnInterval": 2000,
+      "friendlyUnitCost": 1,
+      "nextLevelCondition": {
+        "type": "time",
+        "value": 60000
+      }
+    },
+    {
+      "id": 10,
+      "name": "最终波：背水一战",
+      "enemySpawnInterval": 1200,
+      "enemySpawnSquads": 4,
+      "enemySpeed": 100,
+      "eliteSpawnChance": 0.25,
+      "colorWeights": [0.33, 0.33, 0.34],
+      "friendlySpawnInterval": 2000,
+      "friendlyUnitCost": 2,
+      "nextLevelCondition": {
+        "type": "score",
+        "value": 50
+      }
+    }
+  ]
+}

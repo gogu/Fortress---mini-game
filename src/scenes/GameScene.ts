@@ -6,6 +6,7 @@ import {
 } from "../constants";
 import { spawnParticles, getMultiplier, spawnMultiplier } from "../utils";
 import { Bullet, Enemy, Friendly, spawnItem } from "../entities";
+import { LevelManager, ILevelConfig } from "../managers/LevelManager";
 
 export class GameScene extends Phaser.Scene {
   // --- State ---
@@ -22,15 +23,26 @@ export class GameScene extends Phaser.Scene {
   private totalProduced!: number;
   private producedCounts!: number[];
   private stalematedPairs!: Set<string>;
+
+  private levelManager!: LevelManager;
   
   // --- Cheat State ---
   private eKeyCount: number = 0;
   private eKeyLastTime: number = 0;
+  private pKeyCount: number = 0;
+  private pKeyLastTime: number = 0;
+  private gKeyCount: number = 0;
+  private gKeyLastTime: number = 0;
   
   // --- Groups ---
   private bullets!: Phaser.Physics.Arcade.Group;
   private enemies!: Phaser.Physics.Arcade.Group;
   private friendlies!: Phaser.Physics.Arcade.Group;
+
+  // --- Timers ---
+  private enemySpawnEvent!: Phaser.Time.TimerEvent;
+  private eliteSpawnEvent!: Phaser.Time.TimerEvent;
+  private friendlySpawnEvent!: Phaser.Time.TimerEvent;
 
   // --- Objects ---
   private fortress!: Phaser.GameObjects.Sprite;
@@ -64,6 +76,8 @@ export class GameScene extends Phaser.Scene {
     this.totalProduced = 0;
     this.producedCounts = [0, 0, 0];
     this.stalematedPairs = new Set();
+
+    this.levelManager = new LevelManager();
 
     // Safety: Ensure UIScene is stopped so it can be clean-launched in create()
     if (this.scene.isActive("UIScene")) {
@@ -142,7 +156,20 @@ export class GameScene extends Phaser.Scene {
     this.setupInput();
     this.setupCollisions();
     this.setupEventHandlers();
+    
+    // Level Manager Setup
+    const levelData = this.cache.json.get("levels");
+    this.levelManager.init(levelData);
+    this.levelManager.on("level_changed", (config: ILevelConfig) => {
+      this.handleLevelChanged(config);
+    });
+    this.levelManager.on("game_completed", () => {
+      this.scene.stop("UIScene");
+      this.scene.start("ResultScene", { isVictory: true, gold: this.gold, successCounts: this.successCounts });
+    });
+    
     this.setupLoops();
+    // Do NOT call levelManager.start() here. Wait for UIScene to signal.
     
     // Initial UI Sync
     this.time.delayedCall(100, () => {
@@ -159,12 +186,88 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
+    this.levelManager.update(delta, this.successCounts);
     this.handleRageMode(time, delta);
     this.updateBarrelRotation();
     this.updateUnitLogic();
     this.checkBoundaries();
     this.updateCDBar(time);
     this.updateAimLine();
+  }
+
+  private handleLevelChanged(config: ILevelConfig) {
+    // 1. Clear everything from the previous level
+    if (this.enemySpawnEvent) this.enemySpawnEvent.destroy();
+    if (this.eliteSpawnEvent) this.eliteSpawnEvent.destroy();
+    if (this.friendlySpawnEvent) this.friendlySpawnEvent.destroy();
+
+    this.enemies.clear(true, true);
+    this.friendlies.clear(true, true);
+    this.bullets.clear(true, true);
+
+    // 2. Reset per-level stats (Gold accumulates, but others reset)
+    this.successCounts = [0, 0, 0];
+    this.updateCombo(0);
+
+    // Notify UI immediately to show updated goals (DO THIS BEFORE EMITTING updateSuccess)
+    this.events.emit("levelChanged", config);
+    this.events.emit("updateSuccess", this.successCounts);
+
+    // 3. Cinematic Level Title
+    const title = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, config.name, {
+      fontFamily: "WuXin",
+      fontSize: "64px",
+      color: "#000000",
+      stroke: "#ffffff",
+      strokeThickness: 8
+    }).setOrigin(0.5).setAlpha(0).setDepth(100);
+
+    // Sequence: Fade In -> Hold -> Fade Out
+    this.tweens.chain({
+      targets: title,
+      tweens: [
+        { alpha: 1, duration: 500, ease: "Power2" },
+        { alpha: 1, duration: 1000 }, // Hold
+        { alpha: 0, duration: 500, ease: "Power2" }
+      ],
+      onComplete: () => {
+        title.destroy();
+      }
+    });
+
+    // Start Spawning immediately (don't wait for title animation)
+    this.startLevelSpawning(config);
+  }
+
+  private startLevelSpawning(config: ILevelConfig) {
+    // Spawn the first squad immediately
+    this.spawnEnemySquad();
+
+    // Update enemy spawn timer for subsequent waves
+    this.enemySpawnEvent = this.time.addEvent({
+      delay: config.enemySpawnInterval,
+      callback: this.spawnEnemySquad,
+      callbackScope: this,
+      loop: true
+    });
+
+    // Update elite spawn timer if needed
+    this.eliteSpawnEvent = this.time.addEvent({
+      delay: 10000,
+      callback: () => {
+        if (Math.random() < config.eliteSpawnChance) this.spawnElite();
+      },
+      callbackScope: this,
+      loop: true
+    });
+
+    // Update friendly production timer
+    this.friendlySpawnEvent = this.time.addEvent({
+      delay: config.friendlySpawnInterval,
+      callback: this.autoProduce,
+      callbackScope: this,
+      loop: true
+    });
   }
 
   private updateAimLine() {
@@ -429,6 +532,38 @@ export class GameScene extends Phaser.Scene {
         this.eKeyCount = 0;
       }
     });
+
+    // Cheat Code: Skip Level
+    this.input.keyboard?.on("keydown-P", () => {
+      const now = this.time.now;
+      if (now - this.pKeyLastTime > 500) {
+        this.pKeyCount = 1;
+      } else {
+        this.pKeyCount++;
+      }
+      this.pKeyLastTime = now;
+      
+      if (this.pKeyCount >= 3) {
+        this.levelManager.advanceLevel();
+        this.pKeyCount = 0;
+      }
+    });
+
+    // Cheat Code: Add Gold
+    this.input.keyboard?.on("keydown-G", () => {
+      const now = this.time.now;
+      if (now - this.gKeyLastTime > 500) {
+        this.gKeyCount = 1;
+      } else {
+        this.gKeyCount++;
+      }
+      this.gKeyLastTime = now;
+      
+      if (this.gKeyCount >= 3) {
+        this.updateGold(100);
+        this.gKeyCount = 0;
+      }
+    });
   }
 
   private setupCollisions() {
@@ -444,22 +579,19 @@ export class GameScene extends Phaser.Scene {
     this.events.off("friendlyReachedEnd");
     this.events.off("friendlyUpdate");
     this.events.off("requestBomb");
+    this.events.off("startGame");
 
     this.events.on("bulletMissed", () => this.updateCombo(0));
     this.events.on("friendlyReachedEnd", (x: number, y: number, color: number) => this.handleFriendlyReachedEnd(x, y, color));
     this.events.on("friendlyUpdate", (f: Friendly) => this.updateFriendlyAI(f));
     this.events.on("requestBomb", () => this.useBomb());
+    this.events.on("startGame", () => {
+      this.levelManager.start();
+    });
   }
 
   private setupLoops() {
-    this.time.addEvent({ delay: 3000, callback: this.autoProduce, callbackScope: this, loop: true });
-    this.time.addEvent({ delay: ENEMY_SPAWN_INTERVAL, callback: this.spawnEnemySquad, callbackScope: this, loop: true });
-    this.time.addEvent({ 
-      delay: 10000, 
-      callback: () => { if (Math.random() < 0.33) this.spawnElite(); }, 
-      callbackScope: this, 
-      loop: true 
-    });
+    // Timers are now managed per-level in handleLevelChanged/startLevelSpawning
   }
 
   // --- Update Logic Helpers ---
@@ -586,8 +718,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private autoProduce() {
-    if (this.gold < SQUAD_SIZE) return;
-    this.updateGold(-SQUAD_SIZE);
+    const config = this.levelManager.getCurrentConfig();
+    if (!config) return;
+
+    const squadCost = config.friendlyUnitCost * SQUAD_SIZE;
+    if (this.gold < squadCost) return;
+    this.updateGold(-squadCost);
     
     const squadId = `f_squad_${this.totalProduced}`;
     const laneIndex = Phaser.Math.Between(0, LANES.length - 1);
@@ -616,12 +752,15 @@ export class GameScene extends Phaser.Scene {
   // --- Spawning ---
 
   private spawnEnemySquad() {
+    const config = this.levelManager.getCurrentConfig();
+    if (!config) return;
+
     const laneIndices = Phaser.Utils.Array.NumberArray(0, LANES.length - 1) as number[];
     Phaser.Utils.Array.Shuffle(laneIndices);
 
-    for (let s = 0; s < ENEMY_SPAWN_SQUADS_PER_INTERVAL; s++) {
+    for (let s = 0; s < config.enemySpawnSquads; s++) {
       const laneIndex = laneIndices[s % laneIndices.length];
-      const colorIndex = Phaser.Math.Between(0, 2);
+      const colorIndex = this.getRandomColorIndex(config.colorWeights);
       const squadId = `e_squad_${this.time.now}_${s}`;
       const laneY = LANES[laneIndex];
 
@@ -633,14 +772,30 @@ export class GameScene extends Phaser.Scene {
             // Constrain Y to keep sprite within mask bounds (y:30 to 570)
             // Enemy scale is 0.5, so rough height is ~60px (±30 from origin)
             spawnY = Phaser.Math.Clamp(spawnY, 60, SCREEN_HEIGHT - 60);
-            e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, ENEMY_SPEED, squadId, laneIndex, false);
+            e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, config.enemySpeed, squadId, laneIndex, false);
           }
         });
       }
     }
   }
 
+  private getRandomColorIndex(weights?: number[]): number {
+    if (!weights || weights.length === 0) {
+      return Phaser.Math.Between(0, MODES.length - 1);
+    }
+    const sum = weights.reduce((a, b) => a + b, 0);
+    let rand = Math.random() * sum;
+    for (let i = 0; i < weights.length; i++) {
+      if (rand < weights[i]) return i;
+      rand -= weights[i];
+    }
+    return weights.length - 1; // Fallback
+  }
+
   private spawnElite() {
+    const config = this.levelManager.getCurrentConfig();
+    if (!config) return;
+
     const colorIndex = Phaser.Math.Between(0, 2);
     const laneIndex = Phaser.Math.Between(0, LANES.length - 1);
     const e = this.enemies.get() as Enemy;
@@ -648,7 +803,7 @@ export class GameScene extends Phaser.Scene {
       let spawnY = LANES[laneIndex];
       // Elite scale is also 0.5, height is ~120px (±60 from origin)
       spawnY = Phaser.Math.Clamp(spawnY, 90, SCREEN_HEIGHT - 90);
-      e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, ENEMY_SPEED + 10, "elite", laneIndex, true);
+      e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, config.enemySpeed + 10, "elite", laneIndex, true);
     }
   }
 
@@ -975,10 +1130,6 @@ export class GameScene extends Phaser.Scene {
     if (idx === -1) return;
     this.successCounts[idx] += SCORE_PER_UNIT;
     this.events.emit("updateSuccess", this.successCounts);
-    if (this.successCounts.every(c => c >= WIN_CONDITION)) {
-      this.scene.stop("UIScene");
-      this.scene.start("ResultScene", { isVictory: true, gold: this.gold, successCounts: this.successCounts });
-    }
   }
 
   private updateFriendlyAI(f: Friendly) {
