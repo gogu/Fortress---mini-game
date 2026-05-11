@@ -41,6 +41,11 @@ export class UIScene extends Phaser.Scene {
   }
 
   create() {
+    this.currentGold = 0;
+    this.isPaused = false;
+    this.successTexts = [];
+    this.bombLeds = [];
+
     this.createTopBar();
     this.createHealthBar();
     this.createVictoryProgress();
@@ -371,13 +376,20 @@ export class UIScene extends Phaser.Scene {
   private setupEventBindings() {
     const gameScene = this.scene.get("GameScene");
 
+    // Clean up existing listeners if this instance is reused
+    gameScene.events.off("updateHealth", this.onUpdateHealth, this);
+    gameScene.events.off("updateGold", this.onUpdateGold, this);
+    gameScene.events.off("updateSuccess", this.onUpdateSuccess, this);
+    gameScene.events.off("updateBombs", this.onUpdateBombs, this);
+    gameScene.events.off("updateRage", this.onUpdateRage, this);
+
     gameScene.events.on("updateHealth", this.onUpdateHealth, this);
     gameScene.events.on("updateGold", this.onUpdateGold, this);
     gameScene.events.on("updateSuccess", this.onUpdateSuccess, this);
     gameScene.events.on("updateBombs", this.onUpdateBombs, this);
     gameScene.events.on("updateRage", this.onUpdateRage, this);
 
-    this.events.on("shutdown", () => {
+    this.events.once("shutdown", () => {
       gameScene.events.off("updateHealth", this.onUpdateHealth, this);
       gameScene.events.off("updateGold", this.onUpdateGold, this);
       gameScene.events.off("updateSuccess", this.onUpdateSuccess, this);

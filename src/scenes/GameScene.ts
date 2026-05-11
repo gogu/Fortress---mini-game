@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { 
   MODES, SCREEN_WIDTH, SCREEN_HEIGHT, SQUAD_SIZE, LANES, 
   HEALTH_MAX, ENEMY_SPEED, FRIENDLY_SPEED, WIN_CONDITION, SHOW_DEBUG_VISUALS, SCORE_PER_UNIT,
-  ENEMY_SPAWN_INTERVAL, ENEMY_SPAWN_SQUADS_PER_INTERVAL
+  ENEMY_SPAWN_INTERVAL, ENEMY_SPAWN_SQUADS_PER_INTERVAL, FRIENDLY_GOAL_X, ENEMY_GOAL_X
 } from "../constants";
 import { spawnParticles, getMultiplier, spawnMultiplier } from "../utils";
 import { Bullet, Enemy, Friendly, spawnItem } from "../entities";
@@ -64,6 +64,11 @@ export class GameScene extends Phaser.Scene {
     this.totalProduced = 0;
     this.producedCounts = [0, 0, 0];
     this.stalematedPairs = new Set();
+
+    // Safety: Ensure UIScene is stopped so it can be clean-launched in create()
+    if (this.scene.isActive("UIScene")) {
+      this.scene.stop("UIScene");
+    }
   }
 
   create() {
@@ -131,7 +136,7 @@ export class GameScene extends Phaser.Scene {
     if (SHOW_DEBUG_VISUALS) {
       this.setupVisualization();
     }
-    this.setupFinishLine();
+    this.setupGoalLines();
     this.setupGroups();
     this.setupBuildings();
     this.setupInput();
@@ -319,39 +324,44 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private setupFinishLine() {
+  private setupGoalLines() {
     const graphics = this.add.graphics();
     graphics.setDepth(-0.5); // Above background (-1), below game elements (0)
     
-    const x = SCREEN_WIDTH - 60; // Slightly inside to be visible
     const dashLength = 20;
     const gapLength = 15;
     const jitter = 2.5;
-    const color = 0x4a4a4a;
-    const alpha = 0.6;
     
-    // Draw twice for a slightly thicker, "ink-bleed" hand-drawn look
-    for (let pass = 0; pass < 2; pass++) {
-      graphics.lineStyle(pass === 0 ? 3 : 2, color, pass === 0 ? alpha : alpha * 0.5);
-      
-      for (let y = 10; y < SCREEN_HEIGHT - 10; y += dashLength + gapLength) {
-        graphics.beginPath();
-        let currentY = y;
+    const drawLine = (x: number, color: number, alpha: number) => {
+      // Draw twice for a slightly thicker, "ink-bleed" hand-drawn look
+      for (let pass = 0; pass < 2; pass++) {
+        graphics.lineStyle(pass === 0 ? 3 : 2, color, pass === 0 ? alpha : alpha * 0.5);
         
-        // Starting point with jitter
-        graphics.moveTo(x + (Math.random() - 0.5) * jitter, currentY + (Math.random() - 0.5) * jitter);
-        
-        // Midpoint for wobbliness
-        const midY = currentY + dashLength / 2;
-        graphics.lineTo(x + (Math.random() - 0.5) * jitter, midY + (Math.random() - 0.5) * jitter);
-        
-        // Endpoint for the dash
-        const endY = currentY + dashLength;
-        graphics.lineTo(x + (Math.random() - 0.5) * jitter, endY + (Math.random() - 0.5) * jitter);
-        
-        graphics.strokePath();
+        for (let y = 10; y < SCREEN_HEIGHT - 10; y += dashLength + gapLength) {
+          graphics.beginPath();
+          let currentY = y;
+          
+          // Starting point with jitter
+          graphics.moveTo(x + (Math.random() - 0.5) * jitter, currentY + (Math.random() - 0.5) * jitter);
+          
+          // Midpoint for wobbliness
+          const midY = currentY + dashLength / 2;
+          graphics.lineTo(x + (Math.random() - 0.5) * jitter, midY + (Math.random() - 0.5) * jitter);
+          
+          // Endpoint for the dash
+          const endY = currentY + dashLength;
+          graphics.lineTo(x + (Math.random() - 0.5) * jitter, endY + (Math.random() - 0.5) * jitter);
+          
+          graphics.strokePath();
+        }
       }
-    }
+    };
+
+    // Friendly Goal Line (on the right)
+    drawLine(FRIENDLY_GOAL_X, 0x4a4a4a, 0.6);
+    
+    // Enemy Goal Line (on the left)
+    drawLine(ENEMY_GOAL_X, 0xff0000, 0.4);
   }
 
   private setupGroups() {
@@ -429,6 +439,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupEventHandlers() {
+    // Clear existing listeners to prevent accumulation if the scene instance is reused
+    this.events.off("bulletMissed");
+    this.events.off("friendlyReachedEnd");
+    this.events.off("friendlyUpdate");
+    this.events.off("requestBomb");
+
     this.events.on("bulletMissed", () => this.updateCombo(0));
     this.events.on("friendlyReachedEnd", (x: number, y: number, color: number) => this.handleFriendlyReachedEnd(x, y, color));
     this.events.on("friendlyUpdate", (f: Friendly) => this.updateFriendlyAI(f));
@@ -490,8 +506,8 @@ export class GameScene extends Phaser.Scene {
 
   private checkBoundaries() {
     (this.enemies.getChildren() as Enemy[]).forEach(e => {
-      if (e.active && e.x < 0) {
-        this.takeDamage(10);
+      if (e.active && e.x < ENEMY_GOAL_X) {
+        this.takeDamage(10, e.x, e.y);
         e.deactivate();
       }
     });
@@ -593,7 +609,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.flash(500, 255, 255, 255);
     this.enemies.getChildren().forEach(obj => {
       const e = obj as Enemy;
-      if (e.active) this.time.delayedCall(Phaser.Math.Between(0, 500), () => { if (e.active) this.killEnemy(e); });
+      if (e.active) this.time.delayedCall(Phaser.Math.Between(0, 200), () => { if (e.active) this.killEnemy(e); });
     });
   }
 
@@ -644,8 +660,11 @@ export class GameScene extends Phaser.Scene {
     if (!bullet.isPierce && bullet.hasHit) return;
 
     if (bullet.col !== enemy.col && !bullet.isRage) {
+      if (!bullet.hasHit) {
+        // Only break combo if the bullet hasn't hit any correct enemies yet
+        this.updateCombo(0);
+      }
       bullet.deactivate();
-      this.updateCombo(0);
       spawnParticles(this, bullet.x, bullet.y, 0x969696);
       return;
     }
@@ -668,7 +687,7 @@ export class GameScene extends Phaser.Scene {
   private handleEnemyBuildingCollision(obj1: Phaser.GameObjects.GameObject, obj2: Phaser.GameObjects.GameObject) {
     const enemy = (obj1 instanceof Enemy ? obj1 : obj2) as Enemy;
     if (!enemy || !enemy.active) return;
-    this.takeDamage(10);
+    this.takeDamage(10, enemy.x, enemy.y);
     enemy.deactivate();
   }
 
@@ -786,15 +805,39 @@ export class GameScene extends Phaser.Scene {
 
   // --- Helper Methods ---
 
-  private takeDamage(amount: number) {
+  private takeDamage(amount: number, sourceX?: number, sourceY?: number) {
     const now = this.time.now;
     if (now < this.lastHurtTime + 200) return;
     
     this.health -= amount;
     this.lastHurtTime = now;
     this.updateCombo(0);
-    this.cameras.main.shake(100, 0.01);
-    this.sound.play("playerHurt", { volume: 0.7 });
+    
+    // More intense camera shake
+    this.cameras.main.shake(300, 0.02);
+    
+    // Flash screen red (duration, red, green, blue)
+    this.cameras.main.flash(200, 255, 0, 0);
+
+    // Dramatic explosion effect at the source or center of base
+    const exX = sourceX ?? this.fortress.x;
+    const exY = sourceY ?? this.fortress.y;
+    
+    // Explosion shockwave
+    const explosion = this.add.circle(exX, exY, 20, 0xff0000, 0.8).setDepth(20);
+    this.tweens.add({
+      targets: explosion,
+      scale: 5,
+      alpha: 0,
+      duration: 400,
+      ease: 'Cubic.easeOut',
+      onComplete: () => explosion.destroy()
+    });
+
+    // Spawn some red particles for debris
+    spawnParticles(this, exX, exY, 0xff0000);
+
+    this.sound.play("playerHurt", { volume: 0.8 });
     this.events.emit("updateHealth", this.health);
     
     if (this.health <= 0) {

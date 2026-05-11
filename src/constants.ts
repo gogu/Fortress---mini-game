@@ -1,5 +1,5 @@
 export const MODES = [
-  { name: "RAPID", color: 0x00f2ff, cd: 0.2, dmg: 1 },
+  { name: "RAPID", color: 0x00acd9, cd: 0.1, dmg: 1 },
   { name: "BLAST", color: 0xff8c00, cd: 1.5, dmg: 5 },
   { name: "PIERCE", color: 0xa020f0, cd: 1.0, dmg: 3 },
 ];
@@ -21,6 +21,9 @@ export const ENEMY_SPAWN_INTERVAL = 3000;
 export const ENEMY_SPAWN_SQUADS_PER_INTERVAL = 2;
 
 export const LANES = [120, 220, 320, 420, 520];
+
+export const FRIENDLY_GOAL_X = SCREEN_WIDTH - 60;
+export const ENEMY_GOAL_X = 60;
 
 export const SHOW_DEBUG_VISUALS = false;
 

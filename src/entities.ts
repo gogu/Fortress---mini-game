@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BULLET_SPEED, ENEMY_SPEED, FRIENDLY_SPEED, LANES, SCREEN_WIDTH, SCREEN_HEIGHT, MODES, ENEMY_HP, ENEMY_ELITE_HP } from "./constants";
+import { BULLET_SPEED, ENEMY_SPEED, FRIENDLY_SPEED, LANES, SCREEN_WIDTH, SCREEN_HEIGHT, MODES, ENEMY_HP, ENEMY_ELITE_HP, FRIENDLY_GOAL_X } from "./constants";
 
 export class Bullet extends Phaser.GameObjects.Rectangle {
   declare body: Phaser.Physics.Arcade.Body;
@@ -148,13 +148,14 @@ export class Enemy extends Phaser.GameObjects.Sprite {
         this.eliteParticles.stop();
       }
 
-      if (color === 0x00f2ff) {
+      if (color === MODES[0].color) {
         this.setTexture("enemy_cyan");
         this.play("enemy_cyan_walk", true);
-      } else if (color === 0xff8c00) {
+        this.setScale(0.55);
+      } else if (color === MODES[1].color) {
         this.setTexture("enemy_orange");
         this.play("enemy_orange_walk", true);
-      } else if (color === 0xa020f0) {
+      } else if (color === MODES[2].color) {
         this.setTexture("enemy_purple");
         this.play("enemy_purple_walk", true);
       } else {
@@ -264,17 +265,17 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     this.stalemateTarget = null;
 
     // Specific animation and scaling based on color
-    if (color === 0x00f2ff) {
+    if (color === MODES[0].color) {
       this.setTexture("friend_cyan");
       this.setScale(0.5);
       this.play("friend_cyan_walk", true);
       this.setTint(0xffffff);
-    } else if (color === 0xff8c00) {
+    } else if (color === MODES[1].color) {
       this.setTexture("friend_orange");
       this.setScale(0.5);
       this.play("friend_orange_walk", true);
       this.setTint(0xffffff);
-    } else if (color === 0xa020f0) {
+    } else if (color === MODES[2].color) {
       this.setTexture("friend_purple");
       this.setScale(0.5);
       this.play("friend_purple_walk", true);
@@ -302,8 +303,7 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     if (!this.active) return;
 
     // Check if the friendly crossed the finish line
-    // The finish line is at SCREEN_WIDTH - 60. So when x > SCREEN_WIDTH - 60, we trigger.
-    if (!this.hasScored && this.x > SCREEN_WIDTH - 60) {
+    if (!this.hasScored && this.x > FRIENDLY_GOAL_X) {
       this.hasScored = true;
       this.scene.events.emit("friendlyReachedEnd", this.x, this.y, this.col);
       this.deactivate();
@@ -367,8 +367,11 @@ export function spawnItem(scene: Phaser.Scene, x: number, y: number, type: "bomb
     repeat: 1 // Bounce twice
   });
 
-  scene.events.on("update", (time: number, delta: number) => {
-    if (collected || !container.active) return;
+  const onUpdate = (time: number, delta: number) => {
+    if (collected || !container.active) {
+      scene.events.off("update", onUpdate);
+      return;
+    }
 
     // Update rainbow glow color
     if (glow) {
@@ -394,9 +397,15 @@ export function spawnItem(scene: Phaser.Scene, x: number, y: number, type: "bomb
     if (dist < 20) {
       collected = true;
       onCollect();
+      scene.events.off("update", onUpdate);
       container.destroy();
     }
 
-    if (container.x < -100) container.destroy();
-  });
+    if (container.x < -100) {
+      scene.events.off("update", onUpdate);
+      container.destroy();
+    }
+  };
+
+  scene.events.on("update", onUpdate);
 }
