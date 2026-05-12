@@ -1,5 +1,19 @@
 import Phaser from "phaser";
 
+export interface IEnemySpawnDef {
+  time: number;      // Offset from wave start in ms
+  lane: number;      // 0-4
+  color: number;     // 0-2 (index in MODES)
+  isElite?: boolean;
+}
+
+export interface IWaveConfig {
+  waveId: number;
+  delayBeforeStart: number;
+  delayAfterWave?: number; // New: Optional delay after all spawns in this wave are done
+  spawns: IEnemySpawnDef[];
+}
+
 export interface ILevelConfig {
   id: number;
   name: string;
@@ -14,6 +28,7 @@ export interface ILevelConfig {
     type: "time" | "score";
     value: number;
   };
+  waves?: IWaveConfig[];
 }
 
 export class LevelManager extends Phaser.Events.EventEmitter {
@@ -21,6 +36,7 @@ export class LevelManager extends Phaser.Events.EventEmitter {
   private currentLevelIndex: number = -1;
   private timeInLevel: number = 0;
   private isCompleted: boolean = false;
+  private levelCompletionSignaled: boolean = false;
 
   constructor() {
     super();
@@ -31,17 +47,19 @@ export class LevelManager extends Phaser.Events.EventEmitter {
     this.currentLevelIndex = 0;
     this.timeInLevel = 0;
     this.isCompleted = false;
+    this.levelCompletionSignaled = false;
   }
 
   public start() {
     if (this.levels.length > 0) {
       this.currentLevelIndex = 0;
+      this.levelCompletionSignaled = false;
       this.emit("level_changed", this.getCurrentConfig());
     }
   }
 
   public update(delta: number, successCounts: number[]) {
-    if (this.isCompleted || this.currentLevelIndex === -1) return;
+    if (this.isCompleted || this.currentLevelIndex === -1 || this.levelCompletionSignaled) return;
 
     this.timeInLevel += delta;
 
@@ -61,7 +79,8 @@ export class LevelManager extends Phaser.Events.EventEmitter {
     }
 
     if (conditionMet) {
-      this.advanceLevel();
+      this.levelCompletionSignaled = true;
+      this.emit("level_completed", currentConfig);
     }
   }
 
@@ -69,6 +88,7 @@ export class LevelManager extends Phaser.Events.EventEmitter {
     if (this.currentLevelIndex < this.levels.length - 1) {
       this.currentLevelIndex++;
       this.timeInLevel = 0;
+      this.levelCompletionSignaled = false;
       this.emit("level_changed", this.getCurrentConfig());
     } else {
       this.isCompleted = true;

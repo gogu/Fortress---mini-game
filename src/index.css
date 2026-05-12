@@ -1,17 +1,10 @@
 @import "tailwindcss";
 
-@font-face {
-  font-family: 'WuXin';
-  src: url('/assets/fonts/WuXinShouXieTi-2.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-}
-
 body {
   margin: 0;
   padding: 0;
   background-color: #efeadc;
-  font-family: 'WuXin', 'Courier New', Courier, monospace;
+  font-family: sans-serif; /* Fallback for initial loading text */
   color: #333;
   overflow: hidden;
 }
@@ -23,7 +16,12 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #efeadc;
+  background-color: #ecdccb;
+  background-image: url('/assets/bg/bg_outer.jpg');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: auto; /* Strictly follow 'do not stretch' requirement */
+  overflow: hidden;
   box-sizing: border-box;
 }
 

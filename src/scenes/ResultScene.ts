@@ -1,10 +1,13 @@
 import Phaser from "phaser";
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../constants";
+import { HandDrawnButton } from "../ui/HandDrawnButton";
+import { PaperTransition } from "../ui/PaperTransition";
 
 export interface ResultData {
   isVictory: boolean;
   gold: number;
   successCounts: number[];
+  _useTearTransition?: boolean;
 }
 
 export class ResultScene extends Phaser.Scene {
@@ -13,6 +16,7 @@ export class ResultScene extends Phaser.Scene {
   }
 
   create(data: ResultData) {
+    PaperTransition.setupReveal(this, data);
     const { isVictory, gold, successCounts } = data;
 
     // Dim background
@@ -66,36 +70,17 @@ export class ResultScene extends Phaser.Scene {
     });
 
     // Restart Button
-    const btnBg = this.add.rectangle(0, 100, 240, 60, 0x222222)
-      .setStrokeStyle(2, 0x444444)
-      .setInteractive({ useHandCursor: true });
-    
-    const btnText = this.add.text(0, 100, "PLAY AGAIN", {
-      fontFamily: "WuXin",
-      fontSize: "24px",
-      color: "#ffffff"
-    }).setOrigin(0.5);
-
-    statsContainer.add([btnBg, btnText]);
-
-    btnBg.on("pointerover", () => {
-      btnBg.setStrokeStyle(4, 0xffffff);
-      btnBg.setFillStyle(0x333333);
-      this.sound.play("change", { volume: 0.2 });
+    const restartBtn = new HandDrawnButton(this, {
+      x: 0,
+      y: 100,
+      text: "RETRY",
+      onClick: () => {
+        this.sound.play("change", { volume: 0.5 });
+        PaperTransition.tearTo(this, "GameScene");
+      }
     });
 
-    btnBg.on("pointerout", () => {
-      btnBg.setStrokeStyle(2, 0x444444);
-      btnBg.setFillStyle(0x222222);
-    });
-
-    btnBg.on("pointerdown", () => {
-      this.sound.play("change", { volume: 0.5 });
-      this.cameras.main.fade(500, 0, 0, 0);
-      this.cameras.main.once("camerafadeoutcomplete", () => {
-        this.scene.start("GameScene");
-      });
-    });
+    statsContainer.add(restartBtn);
 
     // Retro scanline effect for this specific UI
     for (let i = 0; i < SCREEN_HEIGHT; i += 4) {

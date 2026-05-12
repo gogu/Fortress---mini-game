@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import "./index.css";
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from "./constants";
-import { BootScene } from "./scenes/BootScene";
+import { LoadingScene } from "./scenes/LoadingScene";
+import { StartScene } from "./scenes/StartScene";
 import { GameScene } from "./scenes/GameScene";
 import { UIScene } from "./scenes/UIScene";
 import { ResultScene } from "./scenes/ResultScene";
@@ -11,7 +12,7 @@ const config: Phaser.Types.Core.GameConfig = {
   width: SCREEN_WIDTH,
   height: SCREEN_HEIGHT,
   parent: "game-container",
-  backgroundColor: "#efeadc",
+  transparent: true,
   pixelArt: true, // Optimized for hand-drawn/pixel style, disables antialiasing
   render: {
     powerPreference: 'high-performance',
@@ -25,9 +26,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, GameScene, UIScene, ResultScene],
+  scene: [LoadingScene, StartScene, GameScene, UIScene, ResultScene],
 };
 
-document.fonts.ready.then(() => {
-  new Phaser.Game(config);
-});
+new Phaser.Game(config);

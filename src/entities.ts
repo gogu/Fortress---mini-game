@@ -73,9 +73,14 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   private eliteColors = MODES.map(m => m.color);
   private eliteGlow: any = null;
   private eliteParticles: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private shadowGraphics: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0, "white-pixel");
+    
+    this.shadowGraphics = scene.add.graphics();
+    this.shadowGraphics.setDepth(-1);
+
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
@@ -184,11 +189,40 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       }
       this.body.setVelocity(-speed, 0);
     }
+
+    this.drawShadow();
+  }
+
+  private drawShadow() {
+    this.shadowGraphics.clear();
+    const w = this.isElite ? 100 : 50;
+    const h = this.isElite ? 24 : 12;
+    const yOffset = this.isElite ? 65 : 30;
+    const wobble = 2;
+    
+    this.shadowGraphics.fillStyle(0x000000, 0.12);
+    
+    const steps = 10;
+    const points: {x: number, y: number}[] = [];
+    for (let i = 0; i < steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      const rx = (w / 2) + (Math.random() - 0.5) * wobble;
+      const ry = (h / 2) + (Math.random() - 0.5) * wobble;
+      points.push({ x: Math.cos(angle) * rx, y: Math.sin(angle) * ry + yOffset });
+    }
+    
+    this.shadowGraphics.beginPath();
+    this.shadowGraphics.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) this.shadowGraphics.lineTo(points[i].x, points[i].y);
+    this.shadowGraphics.closePath();
+    this.shadowGraphics.fillPath();
   }
 
   preUpdate(time: number, delta: number) {
     super.preUpdate(time, delta);
     if (!this.active) return;
+    
+    this.shadowGraphics.setPosition(this.x, this.y);
 
     if (this.isElite) {
       this.eliteTimer += delta;
@@ -227,6 +261,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   deactivate() {
     this.setActive(false);
     this.setVisible(false);
+    this.shadowGraphics.clear();
     if (this.eliteParticles) {
       this.eliteParticles.stop();
     }
@@ -245,9 +280,14 @@ export class Friendly extends Phaser.GameObjects.Sprite {
   public stalemateOpponentSquadId: string | null = null;
   public hasScored: boolean = false;
   public laneIndex: number = 0;
+  private shadowGraphics: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0, "white-pixel");
+
+    this.shadowGraphics = scene.add.graphics();
+    this.shadowGraphics.setDepth(-1);
+
     scene.add.existing(this);
     scene.physics.add.existing(this);
   }
@@ -296,11 +336,39 @@ export class Friendly extends Phaser.GameObjects.Sprite {
         (this.body as Phaser.Physics.Arcade.Body).setOffset(0, 0);
       }
     }
+
+    this.drawShadow();
+  }
+
+  private drawShadow() {
+    this.shadowGraphics.clear();
+    const w = 50;
+    const h = 12;
+    const wobble = 2;
+    
+    this.shadowGraphics.fillStyle(0x000000, 0.12);
+    
+    const steps = 10;
+    const points: {x: number, y: number}[] = [];
+    for (let i = 0; i < steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      const rx = (w / 2) + (Math.random() - 0.5) * wobble;
+      const ry = (h / 2) + (Math.random() - 0.5) * wobble;
+      points.push({ x: Math.cos(angle) * rx, y: Math.sin(angle) * ry + 30 });
+    }
+    
+    this.shadowGraphics.beginPath();
+    this.shadowGraphics.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) this.shadowGraphics.lineTo(points[i].x, points[i].y);
+    this.shadowGraphics.closePath();
+    this.shadowGraphics.fillPath();
   }
 
   preUpdate(time: number, delta: number) {
     super.preUpdate(time, delta);
     if (!this.active) return;
+
+    this.shadowGraphics.setPosition(this.x, this.y);
 
     // Check if the friendly crossed the finish line
     if (!this.hasScored && this.x > FRIENDLY_GOAL_X) {
@@ -331,6 +399,7 @@ export class Friendly extends Phaser.GameObjects.Sprite {
   deactivate() {
     this.setActive(false);
     this.setVisible(false);
+    this.shadowGraphics.clear();
     if (this.body && 'setVelocity' in this.body) {
       this.body.setVelocity(0, 0);
     }

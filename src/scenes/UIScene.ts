@@ -2,6 +2,8 @@ import Phaser from "phaser";
 import { SCREEN_WIDTH, SCREEN_HEIGHT, MODES } from "../constants";
 import { GameScene } from "./GameScene";
 import { ILevelConfig } from "../managers/LevelManager";
+import { HandDrawnButton } from "../ui/HandDrawnButton";
+import { PaperTransition } from "../ui/PaperTransition";
 
 export class UIScene extends Phaser.Scene {
   private goldLabel!: Phaser.GameObjects.Text;
@@ -25,8 +27,7 @@ export class UIScene extends Phaser.Scene {
   private pausedLabel!: Phaser.GameObjects.Text;
   private pauseOverlayBg!: Phaser.GameObjects.Rectangle;
   private scanlineOverlay!: Phaser.GameObjects.TileSprite;
-  private resumeBtn!: Phaser.GameObjects.Text;
-  private resumeBtnBorder!: Phaser.GameObjects.Graphics;
+  private resumeBtn!: HandDrawnButton;
   private bombBtn!: Phaser.GameObjects.Image;
   private bombLeds: Phaser.GameObjects.Rectangle[] = [];
   private isPaused: boolean = false;
@@ -50,6 +51,11 @@ export class UIScene extends Phaser.Scene {
   private mainUIContainer!: Phaser.GameObjects.Container;
 
   create() {
+    // Check for tear transition from GameScene data
+    const gameScene = this.scene.get("GameScene");
+    const data = gameScene.scene.settings.data;
+    PaperTransition.setupReveal(this, data);
+
     this.currentGold = 0;
     this.isPaused = false;
     this.successTexts = [];
@@ -65,57 +71,12 @@ export class UIScene extends Phaser.Scene {
     this.createBombButton();
     
     this.setupEventBindings();
-    this.createTitleScreen();
-  }
 
-  private createTitleScreen() {
-    const overlay = this.add.container(0, 0).setDepth(200);
-    
-    // NO dim background as requested. Just title and button.
-    
-    const title = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 80, "堡垒哨兵：最后防线", {
-      fontFamily: "WuXin",
-      fontSize: "80px",
-      color: "#000000", // Darker to contrast with the notebook bg
-      stroke: "#ffffff",
-      strokeThickness: 10
-    }).setOrigin(0.5);
-
-    const startBtn = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 100, "开始游戏", {
-      fontFamily: "WuXin",
-      fontSize: "48px",
-      color: "#ffffff",
-      backgroundColor: "#4a4a4a",
-      padding: { x: 40, y: 20 }
-    })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-
-    overlay.add([title, startBtn]);
-
-    startBtn.on("pointerover", () => startBtn.setTint(0x00ff00));
-    startBtn.on("pointerout", () => startBtn.clearTint());
-    startBtn.on("pointerdown", () => {
-      // Disable start button immediately to prevent double clicks
-      startBtn.disableInteractive();
-      
-      this.tweens.add({
-        targets: overlay,
-        alpha: 0,
-        duration: 500,
-        onComplete: () => {
-          overlay.destroy();
-          
-          // Fade in main UI
-          this.tweens.add({
-            targets: this.mainUIContainer,
-            alpha: 1,
-            duration: 800
-          });
-
-          this.scene.get("GameScene").events.emit("startGame");
-        }
-      });
+    // Fade in main UI
+    this.tweens.add({
+      targets: this.mainUIContainer,
+      alpha: 1,
+      duration: 800
     });
   }
 
@@ -151,11 +112,10 @@ export class UIScene extends Phaser.Scene {
       pauseBtn.setTint(0xdddddd);
     });
 
-    // Paused Overlay Background (darkens screen, but now using ADD blend mode)
-    this.pauseOverlayBg = this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x111111, 0.5)
+    // Paused Overlay Background (fully transparent)
+    this.pauseOverlayBg = this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x000000, 0)
       .setOrigin(0)
       .setDepth(99)
-      .setBlendMode(Phaser.BlendModes.ADD)
       .setVisible(false);
       
     // Block interaction behind overlay when paused
@@ -172,32 +132,13 @@ export class UIScene extends Phaser.Scene {
     }).setOrigin(0.5).setVisible(false).setDepth(100);
 
     // Resume Button
-    this.resumeBtn = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 50, "Resume", {
-      fontFamily: "WuXin",
-      fontSize: "32px",
-      color: "#ffffff",
-      padding: { x: 30, y: 12 },
-      stroke: "#000000",
-      strokeThickness: 4
-    })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .setVisible(false)
-      .setDepth(100);
-
-    // Hand-drawn wobbly border for Resume button
-    this.resumeBtnBorder = this.add.graphics().setDepth(100).setVisible(false);
-    this.drawResumeBorder();
-
-    this.resumeBtn.on("pointerover", () => {
-      this.resumeBtn.setAlpha(0.7);
-      this.resumeBtnBorder.setAlpha(0.7);
+    this.resumeBtn = new HandDrawnButton(this, {
+      x: SCREEN_WIDTH / 2,
+      y: SCREEN_HEIGHT / 2 + 50,
+      text: "Resume",
+      onClick: () => this.togglePause()
     });
-    this.resumeBtn.on("pointerout", () => {
-      this.resumeBtn.setAlpha(1);
-      this.resumeBtnBorder.setAlpha(1);
-    });
-    this.resumeBtn.on("pointerdown", () => this.togglePause());
+    this.resumeBtn.setVisible(false).setDepth(100);
 
     // Create Scanline Texture and Overlay
     this.createScanlineOverlay();
@@ -235,47 +176,12 @@ export class UIScene extends Phaser.Scene {
       this.scanlineOverlay.setVisible(true);
       this.pausedLabel.setVisible(true);
       this.resumeBtn.setVisible(true);
-      this.resumeBtnBorder.setVisible(true);
     } else {
       gameScene.scene.resume();
       this.pauseOverlayBg.setVisible(false);
       this.scanlineOverlay.setVisible(false);
       this.pausedLabel.setVisible(false);
       this.resumeBtn.setVisible(false);
-      this.resumeBtnBorder.setVisible(false);
-    }
-  }
-
-  private drawResumeBorder() {
-    this.resumeBtnBorder.clear();
-    const w = this.resumeBtn.displayWidth + 20;
-    const h = this.resumeBtn.displayHeight + 10;
-    const x = this.resumeBtn.x - w / 2;
-    const y = this.resumeBtn.y - h / 2;
-    
-    const wobble = 2;
-    const points = [
-      { x: x, y: y },
-      { x: x + w, y: y },
-      { x: x + w, y: y + h },
-      { x: x, y: y + h }
-    ];
-    
-    const wp = points.map(p => ({
-      x: p.x + (Math.random() - 0.5) * wobble,
-      y: p.y + (Math.random() - 0.5) * wobble
-    }));
-
-    this.resumeBtnBorder.lineStyle(3, 0xffffff, 1);
-    // Draw twice for hand-drawn look
-    for (let pass = 0; pass < 2; pass++) {
-      this.resumeBtnBorder.beginPath();
-      this.resumeBtnBorder.moveTo(wp[0].x + (Math.random()-0.5), wp[0].y + (Math.random()-0.5));
-      for (let i = 0; i < wp.length; i++) {
-        const next = wp[(i + 1) % wp.length];
-        this.resumeBtnBorder.lineTo(next.x + (Math.random()-0.5), next.y + (Math.random()-0.5));
-      }
-      this.resumeBtnBorder.strokePath();
     }
   }
 
@@ -330,12 +236,12 @@ export class UIScene extends Phaser.Scene {
   }
 
   private createVictoryProgress() {
-    const startX = 60; 
-    const startY = 105; 
+    const startX = 60;
+    const startY = 130;
 
     // Level Name Label
     this.levelNameLabel = this.add.text(startX, startY - 25, "Wave 1", {
-      fontFamily: "WuXin",
+      fontFamily: "Yozai",
       fontSize: "20px",
       color: "#000000",
       fontStyle: "bold"

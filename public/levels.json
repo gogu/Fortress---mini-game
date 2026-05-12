@@ -2,7 +2,7 @@
   "levels": [
     {
       "id": 1,
-      "name": "第一波：射击与色彩",
+      "name": "按左键射击",
       "enemySpawnInterval": 4000,
       "enemySpawnSquads": 1,
       "enemySpeed": 50,
@@ -13,11 +13,25 @@
       "nextLevelCondition": {
         "type": "score",
         "value": 2
-      }
+      },
+      "waves": [
+        {
+          "waveId": 1,
+          "delayBeforeStart": 1000,
+          "delayAfterWave": 6000,
+          "spawns": [
+            { "time": 0, "lane": 2, "color": 0 },
+            { "time": 1000, "lane": 1, "color": 0 },
+            { "time": 1000, "lane": 3, "color": 0 },
+            { "time": 3000, "lane": 0, "color": 0 },
+            { "time": 3000, "lane": 4, "color": 0 }
+          ]
+        }
+      ]
     },
     {
       "id": 2,
-      "name": "第二波：武器切换",
+      "name": "按右键切换武器",
       "enemySpawnInterval": 3500,
       "enemySpawnSquads": 1,
       "enemySpeed": 60,
@@ -28,11 +42,24 @@
       "nextLevelCondition": {
         "type": "score",
         "value": 3
-      }
+      },
+      "waves": [
+        {
+          "waveId": 1,
+          "delayBeforeStart": 2000,
+          "spawns": [
+            { "time": 0, "lane": 2, "color": 0 },
+            { "time": 1500, "lane": 2, "color": 1 },
+            { "time": 3000, "lane": 2, "color": 2 },
+            { "time": 5000, "lane": 0, "color": 1, "isElite": true },
+            { "time": 5000, "lane": 4, "color": 1, "isElite": true }
+          ]
+        }
+      ]
     },
     {
       "id": 3,
-      "name": "第三波：精英与道具",
+      "name": "按 R 键使用炸弹",
       "enemySpawnInterval": 3000,
       "enemySpawnSquads": 2,
       "enemySpeed": 65,
@@ -43,11 +70,22 @@
       "nextLevelCondition": {
         "type": "time",
         "value": 30000
-      }
+      },
+      "waves": [
+        {
+          "waveId": 1,
+          "delayBeforeStart": 2000,
+          "spawns": [
+            { "time": 0, "lane": 2, "color": 0, "isElite": true },
+            { "time": 5000, "lane": 2, "color": 1, "isElite": true },
+            { "time": 5000, "lane": 3, "color": 1, "isElite": true }
+          ]
+        }
+      ]
     },
     {
       "id": 4,
-      "name": "第四波：青色虫群",
+      "name": "Wave 1",
       "enemySpawnInterval": 2000,
       "enemySpawnSquads": 1,
       "enemySpeed": 95,
@@ -62,12 +100,12 @@
     },
     {
       "id": 5,
-      "name": "第五波：重装方阵",
+      "name": "Wave 2",
       "enemySpawnInterval": 3500,
       "enemySpawnSquads": 3,
       "enemySpeed": 55,
-      "eliteSpawnChance": 0.05,
-      "colorWeights": [0.1, 0.25, 0.65],
+      "eliteSpawnChance": 0.2,
+      "colorWeights": [0.1, 0.1, 0.8],
       "friendlySpawnInterval": 4000,
       "friendlyUnitCost": 2,
       "nextLevelCondition": {
@@ -77,7 +115,7 @@
     },
     {
       "id": 6,
-      "name": "第六波：火力压制",
+      "name": "Wave 3",
       "enemySpawnInterval": 2500,
       "enemySpawnSquads": 2,
       "enemySpeed": 75,
@@ -92,7 +130,7 @@
     },
     {
       "id": 7,
-      "name": "第七波：彩虹突击",
+      "name": "Wave 4",
       "enemySpawnInterval": 1800,
       "enemySpawnSquads": 2,
       "enemySpeed": 90,
@@ -107,11 +145,11 @@
     },
     {
       "id": 8,
-      "name": "第八波：精英护卫军",
+      "name": "Wave 5",
       "enemySpawnInterval": 4000,
       "enemySpawnSquads": 2,
       "enemySpeed": 70,
-      "eliteSpawnChance": 0.4,
+      "eliteSpawnChance": 0.5,
       "colorWeights": [0.3, 0.4, 0.3],
       "friendlySpawnInterval": 3500,
       "friendlyUnitCost": 2,
@@ -122,13 +160,13 @@
     },
     {
       "id": 9,
-      "name": "第九波：全面围攻",
+      "name": "Wave 6",
       "enemySpawnInterval": 1500,
       "enemySpawnSquads": 3,
       "enemySpeed": 90,
       "eliteSpawnChance": 0.1,
       "colorWeights": [0.33, 0.33, 0.34],
-      "friendlySpawnInterval": 2000,
+      "friendlySpawnInterval": 1000,
       "friendlyUnitCost": 1,
       "nextLevelCondition": {
         "type": "time",
@@ -137,7 +175,7 @@
     },
     {
       "id": 10,
-      "name": "最终波：背水一战",
+      "name": "Wave 7",
       "enemySpawnInterval": 1200,
       "enemySpawnSquads": 4,
       "enemySpeed": 100,
