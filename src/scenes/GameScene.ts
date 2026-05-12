@@ -83,6 +83,11 @@ export class GameScene extends Phaser.Scene {
     this.collisionSystem = new CollisionSystem(this, this.entityManager, this.weaponManager);
 
     this.setupEventHandlers();
+
+    // Cleanup on scene shutdown
+    this.events.once("shutdown", () => {
+      this.cleanup();
+    });
     
     // Level Manager Setup
     const levelData = this.cache.json.get("levels");
@@ -107,8 +112,9 @@ export class GameScene extends Phaser.Scene {
       this.events.emit("updateBombs", this.bombs);
       this.events.emit("updateHealth", this.health);
       
-      // Start Level Manager (this will trigger handleLevelChanged -> emit levelChanged)
-      this.levelManager.start();
+      // Start Level Manager
+      const startLevelIndex = data?.startLevelIndex ?? 0;
+      this.levelManager.start(startLevelIndex);
     });
 
     if (!this.scene.isActive("UIScene")) {
@@ -155,27 +161,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupEventHandlers() {
-    this.events.on("requestComboUpdate", (val: number) => this.updateCombo(val));
-    this.events.on("bulletMissed", () => this.updateCombo(0));
-    this.events.on("scorePoint", (color: number) => this.handleFriendlyScore(color));
-    this.events.on("baseDamaged", (amt: number, x: number, y: number) => this.takeDamage(amt, x, y));
-    this.events.on("enemyKilled", (enemy: Enemy, mult: number) => {
-      this.updateCombo(1);
-      this.updateGold(mult);
-    });
-    this.events.on("itemCollected", (type: string) => this.handleItemCollect(type as any));
-    this.events.on("spawnEnergyOrb", (x: number, y: number, color: number) => this.spawnEnergyOrb(x, y, color));
-    this.events.on("requestBomb", () => this.useBomb());
-    this.events.on("allWavesCompleted", () => {
-      const config = this.levelManager.getCurrentConfig();
-      if (config) this.startRandomSpawning(config);
-    });
+    this.events.on("requestComboUpdate", this.handleRequestComboUpdate, this);
+    this.events.on("bulletMissed", this.handleBulletMissed, this);
+    this.events.on("scorePoint", this.handleFriendlyScore, this);
+    this.events.on("baseDamaged", this.takeDamage, this);
+    this.events.on("enemyKilled", this.handleEnemyKilled, this);
+    this.events.on("itemCollected", this.handleItemCollect, this);
+    this.events.on("spawnEnergyOrb", this.spawnEnergyOrb, this);
+    this.events.on("requestBomb", this.useBomb, this);
+    this.events.on("allWavesCompleted", this.handleAllWavesCompleted, this);
 
     // Cheat Events
-    this.events.on("cheat_spawnElite", () => this.entityManager.spawnElite(this.levelManager.getCurrentConfig()));
-    this.events.on("cheat_skipLevel", () => this.levelManager.advanceLevel());
-    this.events.on("cheat_addGold", (amt: number) => this.updateGold(amt));
-    
+    this.events.on("cheat_spawnElite", this.handleCheatSpawnElite, this);
+    this.events.on("cheat_skipLevel", this.handleCheatSkipLevel, this);
+    this.events.on("cheat_jumpToLevel", this.handleCheatJumpToLevel, this);
+    this.events.on("cheat_addGold", this.updateGold, this);
+
     // Fortress vs Enemy collision
     this.physics.add.overlap(this.entityManager.getEnemies(), [this.fortress, this.barracks], (obj1, obj2) => {
       const enemy = (obj1 instanceof Enemy) ? obj1 : obj2 as Enemy;
@@ -184,6 +185,46 @@ export class GameScene extends Phaser.Scene {
         enemy.deactivate();
       }
     });
+  }
+
+  private cleanup() {
+    this.events.off("requestComboUpdate", this.handleRequestComboUpdate, this);
+    this.events.off("bulletMissed", this.handleBulletMissed, this);
+    this.events.off("scorePoint", this.handleFriendlyScore, this);
+    this.events.off("baseDamaged", this.takeDamage, this);
+    this.events.off("enemyKilled", this.handleEnemyKilled, this);
+    this.events.off("itemCollected", this.handleItemCollect, this);
+    this.events.off("spawnEnergyOrb", this.spawnEnergyOrb, this);
+    this.events.off("requestBomb", this.useBomb, this);
+    this.events.off("allWavesCompleted", this.handleAllWavesCompleted, this);
+    this.events.off("cheat_spawnElite", this.handleCheatSpawnElite, this);
+    this.events.off("cheat_skipLevel", this.handleCheatSkipLevel, this);
+    this.events.off("cheat_jumpToLevel", this.handleCheatJumpToLevel, this);
+    this.events.off("cheat_addGold", this.updateGold, this);
+
+    if (this.enemySpawnEvent) this.enemySpawnEvent.destroy();
+    if (this.eliteSpawnEvent) this.eliteSpawnEvent.destroy();
+    if (this.friendlySpawnEvent) this.friendlySpawnEvent.destroy();
+  }
+
+  private handleRequestComboUpdate(val: number) { this.updateCombo(val); }
+  private handleBulletMissed() { this.updateCombo(0); }
+  private handleEnemyKilled(enemy: Enemy, mult: number) {
+    this.updateCombo(1);
+    this.updateGold(mult);
+  }
+  private handleAllWavesCompleted() {
+    const config = this.levelManager.getCurrentConfig();
+    if (config) this.startRandomSpawning(config);
+  }
+  private handleCheatSpawnElite() {
+    this.entityManager.spawnElite(this.levelManager.getCurrentConfig());
+  }
+  private handleCheatSkipLevel() {
+    this.levelManager.advanceLevel();
+  }
+  private handleCheatJumpToLevel(levelId: number) {
+    this.levelManager.jumpToLevel(levelId);
   }
 
   private handleLevelCompleted(config: ILevelConfig) {

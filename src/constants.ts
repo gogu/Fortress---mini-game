@@ -20,6 +20,8 @@ export const WIN_CONDITION = 50;
 export const ENEMY_SPAWN_INTERVAL = 3000;
 export const ENEMY_SPAWN_SQUADS_PER_INTERVAL = 2;
 
+export const DEFAULT_START_LEVEL = 4;
+
 export const LANES = [120, 220, 320, 420, 520];
 
 export const FRIENDLY_GOAL_X = SCREEN_WIDTH - 60;

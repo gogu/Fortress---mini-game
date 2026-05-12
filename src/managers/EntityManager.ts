@@ -35,16 +35,21 @@ export class EntityManager {
     this.friendlies = scene.physics.add.group({ classType: Friendly, runChildUpdate: true });
     
     this.setupEventHandlers();
+
+    // Cleanup on scene shutdown
+    this.scene.events.once("shutdown", () => {
+      this.cleanup();
+    });
   }
 
   private setupEventHandlers() {
-    this.scene.events.on("friendlyReachedEnd", (x: number, y: number, color: number) => {
-      this.handleFriendlyReachedEnd(x, y, color);
-    });
-    
-    this.scene.events.on("friendlyUpdate", (f: Friendly) => {
-      this.updateFriendlyAI(f);
-    });
+    this.scene.events.on("friendlyReachedEnd", this.handleFriendlyReachedEnd, this);
+    this.scene.events.on("friendlyUpdate", this.updateFriendlyAI, this);
+  }
+
+  private cleanup() {
+    this.scene.events.off("friendlyReachedEnd", this.handleFriendlyReachedEnd, this);
+    this.scene.events.off("friendlyUpdate", this.updateFriendlyAI, this);
   }
 
   public startPreciseLevel(config: ILevelConfig) {

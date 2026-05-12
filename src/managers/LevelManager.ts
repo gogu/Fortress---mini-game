@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { DEFAULT_START_LEVEL } from "../constants";
 
 export interface IEnemySpawnDef {
   time: number;      // Offset from wave start in ms
@@ -50,9 +51,9 @@ export class LevelManager extends Phaser.Events.EventEmitter {
     this.levelCompletionSignaled = false;
   }
 
-  public start() {
+  public start(startLevelIndex: number = 0) {
     if (this.levels.length > 0) {
-      this.currentLevelIndex = 0;
+      this.currentLevelIndex = Phaser.Math.Clamp(startLevelIndex, 0, this.levels.length - 1);
       this.levelCompletionSignaled = false;
       this.emit("level_changed", this.getCurrentConfig());
     }
@@ -93,6 +94,17 @@ export class LevelManager extends Phaser.Events.EventEmitter {
     } else {
       this.isCompleted = true;
       this.emit("game_completed");
+    }
+  }
+
+  public jumpToLevel(levelId: number) {
+    const index = this.levels.findIndex(l => l.id === levelId);
+    if (index !== -1) {
+      this.currentLevelIndex = index;
+      this.timeInLevel = 0;
+      this.levelCompletionSignaled = false;
+      this.isCompleted = false;
+      this.emit("level_changed", this.getCurrentConfig());
     }
   }
 

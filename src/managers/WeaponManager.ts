@@ -27,20 +27,33 @@ export class WeaponManager {
     this.aimLine.setDepth(-0.4);
 
     this.setupEventHandlers();
+
+    // Cleanup on scene shutdown
+    this.scene.events.once("shutdown", () => {
+      this.cleanup();
+    });
   }
 
   private setupEventHandlers() {
-    this.scene.events.on("weaponModeChanged", (mode: number) => {
-      this.handleWeaponModeChanged(mode);
-    });
-    
-    this.scene.events.on("requestShoot", (playFailSound: boolean) => {
-      this.shoot(playFailSound);
-    });
+    this.scene.events.on("weaponModeChanged", this.handleWeaponModeChanged, this);
+    this.scene.events.on("requestShoot", this.handleRequestShoot, this);
+    this.scene.events.on("updateRage", this.handleUpdateRage, this);
+  }
 
-    this.scene.events.on("updateRage", (rage: number) => {
-      this.rageRemaining = rage;
-    });
+  private cleanup() {
+    this.scene.events.off("weaponModeChanged", this.handleWeaponModeChanged, this);
+    this.scene.events.off("requestShoot", this.handleRequestShoot, this);
+    this.scene.events.off("updateRage", this.handleUpdateRage, this);
+    this.aimLine.destroy();
+    this.cdBar.destroy();
+  }
+
+  private handleRequestShoot(playFailSound: boolean) {
+    this.shoot(playFailSound);
+  }
+
+  private handleUpdateRage(rage: number) {
+    this.rageRemaining = rage;
   }
 
   private handleWeaponModeChanged(mode: number) {

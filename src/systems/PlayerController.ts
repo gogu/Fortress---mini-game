@@ -9,84 +9,105 @@ export class PlayerController {
   private lastShotTime: number = 0;
   
   // --- Cheat State ---
-  private eKeyCount: number = 0;
-  private eKeyLastTime: number = 0;
-  private pKeyCount: number = 0;
-  private pKeyLastTime: number = 0;
-  private gKeyCount: number = 0;
-  private gKeyLastTime: number = 0;
+  private cheatBuffer: string = "";
+  private lastCheatKeyTime: number = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.setupInput();
+
+    // Cleanup on scene shutdown
+    this.scene.events.once("shutdown", () => {
+      this.cleanup();
+    });
   }
 
   private setupInput() {
-    this.scene.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      if (pointer.leftButtonDown()) {
-        this.emitShoot(true);
-      } else if (pointer.rightButtonDown()) {
-        this.switchMode();
-      }
-    });
+    this.scene.input.on("pointerdown", this.handlePointerDown, this);
     
     // Prevent context menu on right click
     if (this.scene.game.canvas) {
       this.scene.game.canvas.oncontextmenu = (e) => e.preventDefault();
     }
 
-    this.scene.input.keyboard?.on("keydown-SPACE", () => this.switchMode());
-    this.scene.input.keyboard?.on("keydown-R", () => {
-      this.scene.events.emit("requestBomb");
-    });
+    this.scene.input.keyboard?.on("keydown-SPACE", this.switchMode, this);
+    this.scene.input.keyboard?.on("keydown-R", this.handleBombRequest, this);
     
-    // Cheat Code: Spawn Elite (E x 3)
-    this.scene.input.keyboard?.on("keydown-E", () => {
-      const now = this.scene.time.now;
-      if (now - this.eKeyLastTime > 500) {
-        this.eKeyCount = 1;
-      } else {
-        this.eKeyCount++;
-      }
-      this.eKeyLastTime = now;
-      
-      if (this.eKeyCount >= 3) {
-        this.scene.events.emit("cheat_spawnElite");
-        this.eKeyCount = 0;
-      }
-    });
+    // Generic Cheat Listener
+    this.scene.input.keyboard?.on("keydown", this.handleKeyDown, this);
+  }
 
-    // Cheat Code: Skip Level (P x 3)
-    this.scene.input.keyboard?.on("keydown-P", () => {
-      const now = this.scene.time.now;
-      if (now - this.pKeyLastTime > 500) {
-        this.pKeyCount = 1;
-      } else {
-        this.pKeyCount++;
-      }
-      this.pKeyLastTime = now;
-      
-      if (this.pKeyCount >= 3) {
-        this.scene.events.emit("cheat_skipLevel");
-        this.pKeyCount = 0;
-      }
-    });
+  private cleanup() {
+    this.scene.input.off("pointerdown", this.handlePointerDown, this);
+    this.scene.input.keyboard?.off("keydown-SPACE", this.switchMode, this);
+    this.scene.input.keyboard?.off("keydown-R", this.handleBombRequest, this);
+    this.scene.input.keyboard?.off("keydown", this.handleKeyDown, this);
+    
+    if (this.scene.game.canvas) {
+      this.scene.game.canvas.oncontextmenu = null;
+    }
+  }
 
-    // Cheat Code: Add Gold (G x 3)
-    this.scene.input.keyboard?.on("keydown-G", () => {
-      const now = this.scene.time.now;
-      if (now - this.gKeyLastTime > 500) {
-        this.gKeyCount = 1;
-      } else {
-        this.gKeyCount++;
-      }
-      this.gKeyLastTime = now;
-      
-      if (this.gKeyCount >= 3) {
-        this.scene.events.emit("cheat_addGold", 100);
-        this.gKeyCount = 0;
-      }
-    });
+  private handleKeyDown(event: KeyboardEvent) {
+    const key = event.key.toUpperCase();
+    const now = this.scene.time.now;
+
+    // Clear buffer if too much time has passed
+    if (now - this.lastCheatKeyTime > 2000) {
+      this.cheatBuffer = "";
+    }
+    this.lastCheatKeyTime = now;
+
+    // Use event.key directly to avoid "keydown-P" overhead
+    if (/^[A-Z0-9]$/.test(key)) {
+      this.cheatBuffer += key;
+      if (this.cheatBuffer.length > 10) this.cheatBuffer = this.cheatBuffer.substring(1);
+      this.checkCheats();
+    }
+  }
+
+  private checkCheats() {
+    // 1. P{n}P - Jump to Level
+    const jumpMatch = this.cheatBuffer.match(/P(\d+)P$/);
+    if (jumpMatch) {
+      const levelId = parseInt(jumpMatch[1]);
+      this.scene.events.emit("cheat_jumpToLevel", levelId);
+      this.cheatBuffer = "";
+      return;
+    }
+
+    // 2. EEE - Spawn Elite
+    if (this.cheatBuffer.endsWith("EEE")) {
+      this.scene.events.emit("cheat_spawnElite");
+      this.cheatBuffer = "";
+      return;
+    }
+
+    // 3. GGG - Add Gold
+    if (this.cheatBuffer.endsWith("GGG")) {
+      this.scene.events.emit("cheat_addGold", 100);
+      this.cheatBuffer = "";
+      return;
+    }
+
+    // 4. PPP - Skip Level (Legacy)
+    if (this.cheatBuffer.endsWith("PPP")) {
+      this.scene.events.emit("cheat_skipLevel");
+      this.cheatBuffer = "";
+      return;
+    }
+  }
+
+  private handlePointerDown(pointer: Phaser.Input.Pointer) {
+    if (pointer.leftButtonDown()) {
+      this.emitShoot(true);
+    } else if (pointer.rightButtonDown()) {
+      this.switchMode();
+    }
+  }
+
+  private handleBombRequest() {
+    this.scene.events.emit("requestBomb");
   }
 
   private switchMode() {

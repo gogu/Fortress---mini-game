@@ -226,6 +226,18 @@ export class Enemy extends Phaser.GameObjects.Sprite {
 
     if (this.isElite) {
       this.eliteTimer += delta;
+
+      // Flashing warning 0.5s before color change (every 3s)
+      if (this.eliteGlow) {
+        if (this.eliteTimer >= 2500) {
+          // Flash every 100ms
+          const isFlashOn = Math.floor(time / 100) % 2 === 0;
+          this.eliteGlow.outerStrength = isFlashOn ? 12 : 2;
+        } else {
+          this.eliteGlow.outerStrength = 4; // Normal strength
+        }
+      }
+
       if (this.eliteTimer >= 3000) {
         this.eliteTimer = 0;
         this.eliteColorIdx = (this.eliteColorIdx + 1) % 3;

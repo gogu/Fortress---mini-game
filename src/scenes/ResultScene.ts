@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { SCREEN_WIDTH, SCREEN_HEIGHT } from "../constants";
+import { SCREEN_WIDTH, SCREEN_HEIGHT, DEFAULT_START_LEVEL } from "../constants";
 import { HandDrawnButton } from "../ui/HandDrawnButton";
 import { PaperTransition } from "../ui/PaperTransition";
 
@@ -76,7 +76,7 @@ export class ResultScene extends Phaser.Scene {
       text: "RETRY",
       onClick: () => {
         this.sound.play("change", { volume: 0.5 });
-        PaperTransition.tearTo(this, "GameScene");
+        PaperTransition.tearTo(this, "GameScene", { startLevelIndex: DEFAULT_START_LEVEL - 1 });
       }
     });
 

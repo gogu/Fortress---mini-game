@@ -152,18 +152,28 @@ export class UIScene extends Phaser.Scene {
     this.mainUIContainer.add(this.fpsLabel);
 
     // ESC Key to Pause
-    this.input.keyboard?.on("keydown-ESC", () => {
-      if (this.mainUIContainer.alpha < 1) return; // Prevent pause until UI shown
-      this.togglePause();
-    });
+    const escKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    escKey?.on("down", this.handleEscDown, this);
 
     // Auto-pause when game window loses focus
-    this.game.events.on(Phaser.Core.Events.BLUR, () => {
-      if (this.mainUIContainer.alpha < 1) return; // Prevent pause until UI shown
-      if (!this.isPaused && this.scene.isActive("GameScene")) {
-        this.togglePause();
-      }
+    this.game.events.on(Phaser.Core.Events.BLUR, this.handleBlur, this);
+
+    this.events.once("shutdown", () => {
+      this.game.events.off(Phaser.Core.Events.BLUR, this.handleBlur, this);
+      escKey?.off("down", this.handleEscDown, this);
     });
+  }
+
+  private handleEscDown() {
+    if (this.mainUIContainer.alpha < 1) return; // Prevent pause until UI shown
+    this.togglePause();
+  }
+
+  private handleBlur() {
+    if (this.mainUIContainer.alpha < 1) return; // Prevent pause until UI shown
+    if (!this.isPaused && this.scene.isActive("GameScene")) {
+      this.togglePause();
+    }
   }
 
   private togglePause() {
