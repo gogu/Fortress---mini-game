@@ -55,7 +55,7 @@ export class GameScene extends Phaser.Scene {
     this.gold = 0;
     this.lastHurtTime = 0;
     this.successCounts = [0, 0, 0];
-    this.bombs = 0;
+    this.bombs = 2;
     this.rageRemaining = 0;
 
     this.levelManager = new LevelManager();
@@ -345,6 +345,14 @@ export class GameScene extends Phaser.Scene {
 
   private useBomb() {
     if (this.bombs <= 0) return;
+    
+    const bombCost = 100;
+    if (this.gold < bombCost) {
+      this.sound.play("laserShootFailed", { volume: 0.5 });
+      return;
+    }
+
+    this.updateGold(-bombCost);
     this.bombs--;
     this.events.emit("updateBombs", this.bombs);
     this.cameras.main.flash(500, 255, 255, 255);
