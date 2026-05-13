@@ -26,6 +26,8 @@ export class LoadingScene extends Phaser.Scene {
     this.load.audio("completed", "/sfx/completed.wav");
     this.load.audio("score", "/sfx/score.wav");
     this.load.audio("transition", "/sfx/transition.wav");
+    this.load.audio("level_intro", "/sfx/level_intro.wav");
+    this.load.audio("congratulations", "/sfx/congratulations.mp3");
 
     // Load background
     this.load.image("bg_notebook", "/assets/bg/bg_main_notebook.png");

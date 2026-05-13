@@ -19,10 +19,13 @@ export class ResultScene extends Phaser.Scene {
     PaperTransition.setupReveal(this, data);
     const { isVictory, gold, successCounts } = data;
 
-    // Dim background
-    this.add.rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x000000, 0.8).setOrigin(0);
+    if (isVictory && this.cache.audio.exists("congratulations")) {
+      this.time.delayedCall(1000, () => {
+        this.sound.play("congratulations", { volume: 0.8 });
+      });
+    }
 
-    const titleText = isVictory ? "VICTORY ACHIEVED" : "DEFENSE BREACHED";
+    const titleText = isVictory ? "CONGRATULATIONS" : "DEFENSE BREACHED";
     const titleColor = isVictory ? "#4ade80" : "#f87171";
 
     // Title
@@ -50,15 +53,12 @@ export class ResultScene extends Phaser.Scene {
     const goldText = this.add.text(0, -40, `TOTAL GOLD: ${gold}`, {
       fontFamily: "WuXin",
       fontSize: "24px",
-      color: "#ffd700"
+      color: "#ffd700",
+      stroke: "#000",
+      strokeThickness: 8,
     }).setOrigin(0.5);
 
-    const progressText = this.add.text(0, 0, 
-      `RED: ${successCounts[0]} | GREEN: ${successCounts[1]} | BLUE: ${successCounts[2]}`, 
-      { fontFamily: "WuXin", fontSize: "18px", color: "#c8c8c8" }
-    ).setOrigin(0.5);
-
-    statsContainer.add([goldText, progressText]);
+    statsContainer.add([goldText]);
     statsContainer.setAlpha(0);
 
     this.time.delayedCall(800, () => {

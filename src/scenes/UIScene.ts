@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { SCREEN_WIDTH, SCREEN_HEIGHT, MODES } from "../constants";
+import { SCREEN_WIDTH, SCREEN_HEIGHT, MODES, BOMB_COST } from "../constants";
 import { GameScene } from "./GameScene";
 import { ILevelConfig } from "../managers/LevelManager";
 import { HandDrawnButton } from "../ui/HandDrawnButton";
@@ -9,6 +9,7 @@ export class UIScene extends Phaser.Scene {
   private goldLabel!: Phaser.GameObjects.Text;
   private goldIcon!: Phaser.GameObjects.Image;
   private currentGold: number = 0;
+  private currentBombs: number = 2;
   private goldMask!: Phaser.Display.Masks.GeometryMask;
   private nextGoldLabel?: Phaser.GameObjects.Text;
   private goldStartY: number = 350; // Target Y coordinate over the Barracks
@@ -29,6 +30,7 @@ export class UIScene extends Phaser.Scene {
   private scanlineOverlay!: Phaser.GameObjects.TileSprite;
   private resumeBtn!: HandDrawnButton;
   private bombBtn!: Phaser.GameObjects.Image;
+  private bombCostLabel!: Phaser.GameObjects.Text;
   private bombLeds: Phaser.GameObjects.Rectangle[] = [];
   private isPaused: boolean = false;
 
@@ -305,6 +307,16 @@ export class UIScene extends Phaser.Scene {
 
     this.mainUIContainer.add(this.bombBtn);
 
+    this.bombCostLabel = this.add.text(btnX, btnY - 25, `-${BOMB_COST}`, {
+      fontFamily: "WuXin",
+      fontSize: "14px",
+      color: "#e29829",
+      fontStyle: "bold",
+      stroke: "#ffffff",
+      strokeThickness: 3
+    }).setOrigin(0.5);
+    this.mainUIContainer.add(this.bombCostLabel);
+
     // Create 2 LED indicators below the bomb button
     this.bombLeds = [];
     const barWidth = 20;
@@ -371,7 +383,7 @@ export class UIScene extends Phaser.Scene {
     this.goldLabel = this.add.text(this.goldIcon.x + this.goldIcon.displayWidth/2 + 5, startY, "0", { 
       fontFamily: "WuXin",
       fontSize: "22px", 
-      color: "#8b4513",
+      color: "#e29829",
       fontStyle: "bold",
       stroke: "#ffffff",
       strokeThickness: 5
@@ -473,8 +485,49 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
+    if (!isIncrease && this.currentGold > 0) {
+      const diff = this.currentGold - gold;
+      this.spawnGoldPopText(`-${diff}`, "#ff4444");
+    }
+
     this.currentGold = gold;
+    this.refreshBombButton();
   }
+
+  private spawnGoldPopText(text: string, color: string) {
+    const popText = this.add.text(this.goldLabel.x + 20, this.goldStartY - 20, text, {
+      fontFamily: "WuXin",
+      fontSize: "24px",
+      color: color,
+      fontStyle: "bold",
+      stroke: "#ffffff",
+      strokeThickness: 4
+    }).setOrigin(0, 0.5).setDepth(2000);
+
+    this.tweens.add({
+      targets: popText,
+      y: popText.y - 60,
+      alpha: 0,
+      duration: 800,
+      ease: "Cubic.easeOut",
+      onComplete: () => popText.destroy()
+    });
+  }
+
+  private refreshBombButton() {
+    const canAfford = this.currentGold >= BOMB_COST;
+    const hasBombs = this.currentBombs > 0;
+
+    if (hasBombs && canAfford) {
+      this.bombBtn.setTint(0xffffff);
+      this.bombBtn.input!.cursor = "pointer";
+      this.bombCostLabel.setColor("#E29829"); // Golden
+    } else {
+      this.bombBtn.setTint(0x888888);
+      this.bombBtn.input!.cursor = "default";
+      this.bombCostLabel.setColor("#a1a1a1"); // Red
+    }
+}
 
   private onLevelChanged(config: ILevelConfig) {
     this.currentLevelConfig = config;
@@ -545,6 +598,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   private onUpdateBombs(bombs: number) {
+    this.currentBombs = bombs;
     for (let i = 0; i < 2; i++) {
       if (i < bombs) {
         this.bombLeds[i].setFillStyle(0x00ff00).setAlpha(1);
@@ -553,13 +607,7 @@ export class UIScene extends Phaser.Scene {
       }
     }
     
-    if (bombs > 0) {
-      this.bombBtn.setTint(0xffffff);
-      this.bombBtn.input!.cursor = "pointer";
-    } else {
-      this.bombBtn.setTint(0x888888);
-      this.bombBtn.input!.cursor = "default";
-    }
+    this.refreshBombButton();
   }
 
   private onUpdateRage(rage: number) {

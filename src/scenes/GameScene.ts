@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import { 
   MODES, SCREEN_WIDTH, SCREEN_HEIGHT, LANES, 
-  HEALTH_MAX, SHOW_DEBUG_VISUALS, FRIENDLY_GOAL_X, ENEMY_GOAL_X, SCORE_PER_UNIT
+  HEALTH_MAX, SHOW_DEBUG_VISUALS, FRIENDLY_GOAL_X, ENEMY_GOAL_X, SCORE_PER_UNIT,
+  INITIAL_GOLD, BOMB_COST
 } from "../constants";
 import { spawnParticles, getMultiplier, spawnMultiplier } from "../utils";
 import { Enemy } from "../entities";
@@ -52,7 +53,7 @@ export class GameScene extends Phaser.Scene {
   init() {
     this.health = HEALTH_MAX;
     this.combo = 0;
-    this.gold = 0;
+    this.gold = INITIAL_GOLD;
     this.lastHurtTime = 0;
     this.successCounts = [0, 0, 0];
     this.bombs = 2;
@@ -104,7 +105,7 @@ export class GameScene extends Phaser.Scene {
     });
     
     // Initial UI Sync & Level Start
-    this.time.delayedCall(150, () => {
+    this.time.delayedCall(1000, () => {
       // Sync basic state
       this.events.emit("updateGold", this.gold);
       this.events.emit("updateSuccess", this.successCounts);
@@ -228,16 +229,23 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleLevelCompleted(config: ILevelConfig) {
-    if (this.cache.audio.exists("completed")) {
-      this.sound.play("completed", { volume: 0.6 });
-    }
-    // Stop all spawning immediately
+    // 1. Stop all spawning logic as the absolute first step
     if (this.enemySpawnEvent) this.enemySpawnEvent.destroy();
     if (this.eliteSpawnEvent) this.eliteSpawnEvent.destroy();
     if (this.friendlySpawnEvent) this.friendlySpawnEvent.destroy();
+    this.entityManager.stopSpawning();
+
+    // 2. Play effects
+    if (this.cache.audio.exists("completed")) {
+      this.sound.play("completed", { volume: 0.6 });
+    }
     
-    // Clear field: Enemies die, Friendlies disappear
-    this.entityManager.clearField(true);
+    // 3. Clear field: Enemies die, Friendlies disappear
+    const activeEnemies = (this.entityManager.getEnemies().getChildren() as Enemy[]).some(e => e.active);
+    if (activeEnemies) {
+      this.sound.play("hitHurt", { volume: 0.5 });
+    }
+    this.entityManager.clearField(true, false);
     
     // Clear projectiles
     this.weaponManager.getBullets().clear(true, true);
@@ -275,6 +283,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleLevelChanged(config: ILevelConfig) {
+    if (this.cache.audio.exists("level_intro")) {
+      this.sound.play("level_intro", { volume: 0.8 });
+    }
+    
     // Ensure timers are definitely cleared
     if (this.enemySpawnEvent) this.enemySpawnEvent.destroy();
     if (this.eliteSpawnEvent) this.eliteSpawnEvent.destroy();
@@ -346,19 +358,23 @@ export class GameScene extends Phaser.Scene {
   private useBomb() {
     if (this.bombs <= 0) return;
     
-    const bombCost = 100;
-    if (this.gold < bombCost) {
+    if (this.gold < BOMB_COST) {
       this.sound.play("laserShootFailed", { volume: 0.5 });
       return;
     }
 
-    this.updateGold(-bombCost);
+    this.updateGold(-BOMB_COST);
     this.bombs--;
     this.events.emit("updateBombs", this.bombs);
+    
+    this.sound.play("hitHurt", { volume: 0.8 });
     this.cameras.main.flash(500, 255, 255, 255);
+    
     this.entityManager.getEnemies().getChildren().forEach(obj => {
       const e = obj as Enemy;
-      if (e.active) this.time.delayedCall(Phaser.Math.Between(0, 200), () => { if (e.active) this.entityManager.killEnemy(e); });
+      if (e.active) this.time.delayedCall(Phaser.Math.Between(0, 200), () => { 
+        if (e.active) this.entityManager.killEnemy(e, false); 
+      });
     });
   }
 

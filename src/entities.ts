@@ -57,6 +57,7 @@ export class Bullet extends Phaser.GameObjects.Rectangle {
 
 export class Enemy extends Phaser.GameObjects.Sprite {
   declare body: Phaser.Physics.Arcade.Body;
+  public spawnId: string = "";
   public hp: number = ENEMY_HP;
   public maxHp: number = ENEMY_HP;
   public speed: number = ENEMY_SPEED;
@@ -100,6 +101,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   }
 
   spawn(x: number, y: number, color: number, speed: number, squadId: string, laneIndex: number, isElite: boolean) {
+    this.spawnId = Phaser.Utils.String.UUID();
     this.setPosition(x, y);
     this.setActive(true);
     this.setVisible(true);
@@ -117,6 +119,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     // Clear rotation and tint first
     this.setRotation(0);
     this.setTint(0xffffff);
+    this.setAlpha(1);
 
     if (isElite) {
       this.setScale(0.5); // 50% size for elite (with 368x246 texture, visual size is preserved)
@@ -139,6 +142,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       // Start Particles
       if (this.eliteParticles) {
         this.eliteParticles.setDepth(this.depth - 1);
+        this.eliteParticles.setVisible(true);
         this.eliteParticles.startFollow(this);
         this.eliteParticles.start();
         this.eliteParticles.setParticleTint(initialColor);
@@ -274,17 +278,29 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.setActive(false);
     this.setVisible(false);
     this.shadowGraphics.clear();
+    this.scene.tweens.killTweensOf(this);
+    this.setAlpha(1);
     if (this.eliteParticles) {
       this.eliteParticles.stop();
+      this.eliteParticles.setVisible(false);
     }
     if (this.body && 'setVelocity' in this.body) {
       this.body.setVelocity(0, 0);
     }
   }
+
+  destroy(fromScene?: boolean) {
+    if (this.eliteParticles) {
+      this.eliteParticles.destroy();
+    }
+    this.shadowGraphics.destroy();
+    super.destroy(fromScene);
+  }
 }
 
 export class Friendly extends Phaser.GameObjects.Sprite {
   declare body: Phaser.Physics.Arcade.Body;
+  public spawnId: string = "";
   public col: number = 0xffffff;
   public squadId: string = "";
   public isStalemated: boolean = false;
@@ -305,6 +321,7 @@ export class Friendly extends Phaser.GameObjects.Sprite {
   }
 
   spawn(x: number, y: number, color: number, squadId: string, laneIndex: number) {
+    this.spawnId = Phaser.Utils.String.UUID();
     this.setPosition(x, y);
     this.setActive(true);
     this.setVisible(true);
@@ -315,6 +332,7 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     this.hasScored = false;
     this.isStalemated = false;
     this.stalemateTarget = null;
+    this.setAlpha(1);
 
     // Specific animation and scaling based on color
     if (color === MODES[0].color) {
@@ -412,9 +430,16 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     this.setActive(false);
     this.setVisible(false);
     this.shadowGraphics.clear();
+    this.scene.tweens.killTweensOf(this);
+    this.setAlpha(1);
     if (this.body && 'setVelocity' in this.body) {
       this.body.setVelocity(0, 0);
     }
+  }
+
+  destroy(fromScene?: boolean) {
+    this.shadowGraphics.destroy();
+    super.destroy(fromScene);
   }
 }
 

@@ -2,7 +2,8 @@ import Phaser from "phaser";
 import { Enemy, Friendly, spawnItem } from "../entities";
 import { 
   MODES, SCREEN_WIDTH, SCREEN_HEIGHT, SQUAD_SIZE, LANES, 
-  ENEMY_GOAL_X, FRIENDLY_GOAL_X, FRIENDLY_SPEED, SCORE_PER_UNIT 
+  ENEMY_GOAL_X, FRIENDLY_GOAL_X, FRIENDLY_SPEED, SCORE_PER_UNIT,
+  STALEMATE_BASE_DURATION
 } from "../constants";
 import { spawnParticles, getMultiplier, spawnMultiplier } from "../utils";
 import { ILevelConfig, IWaveConfig, IEnemySpawnDef } from "./LevelManager";
@@ -25,6 +26,11 @@ export class EntityManager {
   private isWaitingForNextWave: boolean = false;
   private allWavesFinished: boolean = false;
   private currentLevelConfig: ILevelConfig | null = null;
+  private spawningEnabled: boolean = true;
+
+  // Track staggered delayed calls to cancel them on level completion
+  private pendingSpawns: Phaser.Time.TimerEvent[] = [];
+  private waveTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(scene: Phaser.Scene, barracks: Phaser.GameObjects.Sprite, fortress: Phaser.GameObjects.Sprite) {
     this.scene = scene;
@@ -53,6 +59,7 @@ export class EntityManager {
   }
 
   public startPreciseLevel(config: ILevelConfig) {
+    this.spawningEnabled = true;
     this.currentLevelConfig = config;
     this.currentWaveIndex = 0;
     this.spawnQueue = [];
@@ -67,10 +74,30 @@ export class EntityManager {
     }
   }
 
+  public stopSpawning() {
+    this.spawningEnabled = false;
+    this.allWavesFinished = true;
+    this.spawnQueue = [];
+    this.isWaitingForNextWave = false;
+    
+    // Cancel staggered delayed calls
+    this.pendingSpawns.forEach(t => t.destroy());
+    this.pendingSpawns = [];
+
+    // Cancel wave timer
+    if (this.waveTimer) {
+      this.waveTimer.destroy();
+      this.waveTimer = null;
+    }
+  }
+
   private loadWave(wave: IWaveConfig) {
+    if (!this.spawningEnabled) return;
     this.isWaitingForNextWave = true;
     
-    this.scene.time.delayedCall(wave.delayBeforeStart, () => {
+    this.waveTimer = this.scene.time.delayedCall(wave.delayBeforeStart, () => {
+      this.waveTimer = null;
+      if (!this.spawningEnabled) return;
       this.isWaitingForNextWave = false;
       this.waveStartTime = this.scene.time.now;
       this.spawnQueue = [...wave.spawns].sort((a, b) => a.time - b.time);
@@ -80,11 +107,13 @@ export class EntityManager {
   public update(time: number, delta: number) {
     this.updateUnitLogic();
     this.checkBoundaries();
-    this.processSpawnQueue(time);
+    if (this.spawningEnabled) {
+      this.processSpawnQueue(time);
+    }
   }
 
   private processSpawnQueue(time: number) {
-    if (this.allWavesFinished || this.isWaitingForNextWave) return;
+    if (!this.spawningEnabled || this.allWavesFinished || this.isWaitingForNextWave) return;
 
     if (this.spawnQueue.length > 0) {
       const elapsedSinceWaveStart = time - this.waveStartTime;
@@ -102,8 +131,11 @@ export class EntityManager {
 
       this.isWaitingForNextWave = true;
 
-      this.scene.time.delayedCall(delay, () => {
-        if (this.currentWaveIndex < this.currentLevelConfig!.waves!.length - 1) {
+      this.waveTimer = this.scene.time.delayedCall(delay, () => {
+        this.waveTimer = null;
+        if (!this.spawningEnabled) return;
+
+        if (this.currentLevelConfig && this.currentWaveIndex < this.currentLevelConfig.waves!.length - 1) {
           this.currentWaveIndex++;
           this.loadWave(this.currentLevelConfig!.waves![this.currentWaveIndex]);
         } else {
@@ -116,6 +148,7 @@ export class EntityManager {
   }
 
   private spawnSpecificEnemy(def: IEnemySpawnDef) {
+    if (!this.spawningEnabled) return;
     const e = this.enemies.get() as Enemy;
     if (e) {
       const laneY = LANES[def.lane];
@@ -170,8 +203,9 @@ export class EntityManager {
       const colorIndex = this.getRandomColorIndex(config.colorWeights);
       const squadId = `e_squad_${this.scene.time.now}_${s}`;
       const laneY = LANES[laneIndex];
+      const squadSize = config.enemySquadSize || SQUAD_SIZE;
 
-      for (let i = 0; i < SQUAD_SIZE; i++) {
+      for (let i = 0; i < squadSize; i++) {
         this.scene.time.delayedCall(i * 150, () => {
           const e = this.enemies.get() as Enemy;
           if (e) {
@@ -191,7 +225,8 @@ export class EntityManager {
     if (e) {
       let spawnY = LANES[laneIndex];
       spawnY = Phaser.Math.Clamp(spawnY, 90, SCREEN_HEIGHT - 90);
-      e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, config.enemySpeed + 10, "elite", laneIndex, true);
+      const eliteSquadId = `elite_${Phaser.Utils.String.UUID()}`;
+      e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, config.enemySpeed + 10, eliteSquadId, laneIndex, true);
     }
   }
 
@@ -204,10 +239,12 @@ export class EntityManager {
     
     for (let i = 0; i < SQUAD_SIZE; i++) {
       const colorIndex = (this.totalProduced + i) % MODES.length;
-      this.scene.time.delayedCall(i * 150, () => {
+      const t = this.scene.time.delayedCall(i * 150, () => {
+        this.pendingSpawns = this.pendingSpawns.filter(ev => ev !== t);
         const f = this.friendlies.get() as Friendly;
         if (f) f.spawn(this.barracks.x, this.barracks.y, MODES[colorIndex].color, squadId, laneIndex);
       });
+      this.pendingSpawns.push(t);
     }
     this.totalProduced++;
     return squadCost;
@@ -335,10 +372,10 @@ export class EntityManager {
    * Immediately clears all units from the field.
    * Enemies will trigger their death logic (particles, sound, gold).
    */
-  public clearField(triggerEnemyDeath: boolean = true) {
+  public clearField(triggerEnemyDeath: boolean = true, playSound: boolean = true) {
     if (triggerEnemyDeath) {
       const activeEnemies = (this.enemies.getChildren() as Enemy[]).filter(e => e.active);
-      activeEnemies.forEach(e => this.killEnemy(e));
+      activeEnemies.forEach(e => this.killEnemy(e, playSound));
     } else {
       (this.enemies.getChildren() as any[]).forEach(e => { if(e.shadowGraphics) e.shadowGraphics.clear(); });
       this.enemies.clear(true, true);
@@ -349,9 +386,11 @@ export class EntityManager {
     this.stalematedPairs.clear();
   }
 
-  public killEnemy(enemy: Enemy) {
+  public killEnemy(enemy: Enemy, playSound: boolean = true) {
     enemy.deactivate();
-    this.scene.sound.play("hitHurt", { volume: 0.4 });
+    if (playSound) {
+      this.scene.sound.play("hitHurt", { volume: 0.4 });
+    }
     spawnParticles(this.scene, enemy.x, enemy.y, enemy.col);
     
     const mult = getMultiplier(enemy.x, enemy.y);
@@ -365,34 +404,53 @@ export class EntityManager {
   }
 
   public handleFriendlyEnemyCollision(friendly: Friendly, enemy: Enemy) {
+    if (enemy.isElite) {
+      // Unstoppable: Immediately kill the friendly unit on contact without stopping the elite
+      if (friendly.active) {
+        spawnParticles(this.scene, friendly.x, friendly.y, friendly.col);
+        this.scene.sound.play("hitHurt", { volume: 0.3 });
+        friendly.deactivate();
+      }
+      return;
+    }
+
     const pairKey = `${friendly.squadId}_${enemy.squadId}`;
     if (this.stalematedPairs.has(pairKey) || friendly.isStalemated || enemy.isStalemated) return;
     this.stalematedPairs.add(pairKey);
 
-    if (enemy.isElite) {
-      const fSquad = (this.friendlies.getChildren() as Friendly[]).filter(u => u.active && u.squadId === friendly.squadId);
-      fSquad.forEach((member, index) => {
-        this.scene.time.delayedCall(index * 100, () => {
-          if (member.active) {
-            spawnParticles(this.scene, member.x, member.y, member.col);
-            member.deactivate();
-          }
-        });
-      });
-      enemy.isStalemated = true;
-      if (enemy.body) enemy.body.setVelocity(0, 0);
-      this.scene.time.delayedCall(200, () => {
-        if (enemy.active) {
-          enemy.isStalemated = false;
-          if (enemy.body) enemy.body.setVelocity(-enemy.speed, 0);
-        }
-      });
-      return;
-    }
+    // Capture IDs to validate after delay (prevents pooling bugs)
+    const capturedEnemySpawnId = enemy.spawnId;
+    const capturedFriendlySpawnId = friendly.spawnId;
 
     const fSquad = (this.friendlies.getChildren() as Friendly[]).filter(u => u.active && u.squadId === friendly.squadId);
     const eSquad = (this.enemies.getChildren() as Enemy[]).filter(u => u.active && u.squadId === enemy.squadId);
-    const duration = 2000 / (1 + Math.abs(fSquad.length - eSquad.length));
+    
+    // Track IDs for the whole squad
+    const fSquadSnapshot = fSquad.map(u => ({ unit: u, id: u.spawnId }));
+    const eSquadSnapshot = eSquad.map(u => ({ unit: u, id: u.spawnId }));
+
+    const duration = STALEMATE_BASE_DURATION / (1 + Math.abs(fSquad.length - eSquad.length));
+
+    // Pre-calculate which units will be destroyed/hit to add flashing feedback
+    const unitsToEliminate: { unit: (Friendly | Enemy), id: string }[] = [];
+    fSquad.forEach(f => {
+      const matchingEnemy = eSquad.find(e => e.active && e.col === f.col);
+      if (matchingEnemy) {
+        unitsToEliminate.push({ unit: f, id: f.spawnId });
+        unitsToEliminate.push({ unit: matchingEnemy, id: matchingEnemy.spawnId });
+      }
+    });
+
+    // Start flashing feedback
+    unitsToEliminate.forEach(entry => {
+      this.scene.tweens.add({
+        targets: entry.unit,
+        alpha: 0.4,
+        duration: 150,
+        yoyo: true,
+        repeat: -1
+      });
+    });
 
     [...fSquad, ...eSquad].forEach(u => {
       if (u.active && !u.isStalemated) {
@@ -402,16 +460,37 @@ export class EntityManager {
     });
 
     this.scene.time.delayedCall(duration, () => {
-      if (friendly.active && enemy.active) {
-        fSquad.forEach(f => {
-          const matchingEnemy = eSquad.find(e => e.active && e.col === f.col);
-          if (matchingEnemy) { matchingEnemy.hp -= 1; f.deactivate(); if (matchingEnemy.hp <= 0) this.killEnemy(matchingEnemy); }
+      this.stalematedPairs.delete(pairKey);
+
+      // Stop flashing (only if same instance)
+      unitsToEliminate.forEach(entry => {
+        if (entry.unit.active && entry.unit.spawnId === entry.id) {
+          this.scene.tweens.killTweensOf(entry.unit);
+          entry.unit.setAlpha(1);
+        }
+      });
+
+      const isMainPairValid = friendly.active && friendly.spawnId === capturedFriendlySpawnId && 
+                             enemy.active && enemy.spawnId === capturedEnemySpawnId;
+
+      if (isMainPairValid) {
+        fSquadSnapshot.forEach(fEntry => {
+          if (fEntry.unit.active && fEntry.unit.spawnId === fEntry.id) {
+            const matchingEnemyEntry = eSquadSnapshot.find(e => e.unit.active && e.unit.spawnId === e.id && e.unit.col === fEntry.unit.col);
+            if (matchingEnemyEntry) { 
+              matchingEnemyEntry.unit.hp -= 1; 
+              fEntry.unit.deactivate(); 
+              if (matchingEnemyEntry.unit.hp <= 0) this.killEnemy(matchingEnemyEntry.unit); 
+            }
+          }
         });
       }
-      [...fSquad, ...eSquad].forEach(u => {
-        if (u.active) {
+
+      [...fSquadSnapshot, ...eSquadSnapshot].forEach(entry => {
+        const u = entry.unit;
+        if (u.active && u.spawnId === entry.id) {
           u.isStalemated = false;
-          if (u instanceof Enemy) u.body.setVelocity(-u.speed, 0);
+          if (u instanceof Enemy && u.body) u.body.setVelocity(-u.speed, 0);
         }
       });
     });
