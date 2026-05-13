@@ -61,7 +61,7 @@ export class CollisionSystem {
     }
 
     if (enemy.hp <= 0) {
-      this.entityManager.killEnemy(enemy);
+      this.entityManager.killEnemy(enemy, true, true);
       this.scene.events.emit("spawnEnergyOrb", enemy.x, enemy.y, enemy.col);
     }
   }
@@ -75,7 +75,7 @@ export class CollisionSystem {
       const target = e as Enemy;
       if (target.active && target.col === color) {
         target.hp -= dmg;
-        if (target.hp <= 0) this.entityManager.killEnemy(target);
+        if (target.hp <= 0) this.entityManager.killEnemy(target, true, true);
       }
     });
     this.scene.time.delayedCall(100, () => circle.destroy());

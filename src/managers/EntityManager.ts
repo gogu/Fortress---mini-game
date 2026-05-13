@@ -157,7 +157,9 @@ export class EntityManager {
       spawnY = Phaser.Math.Clamp(spawnY, verticalPadding, SCREEN_HEIGHT - verticalPadding);
       
       const speed = this.currentLevelConfig?.enemySpeed || 50;
-      e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[def.color].color, speed, `wave_enemy_${this.scene.time.now}`, def.lane, !!def.isElite);
+      // Use UUID to ensure every single unit is its own "squad" unless explicitly grouped
+      const uniqueId = `wave_unit_${Phaser.Utils.String.UUID()}`;
+      e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[def.color].color, speed, uniqueId, def.lane, !!def.isElite);
     }
   }
 
@@ -386,16 +388,18 @@ export class EntityManager {
     this.stalematedPairs.clear();
   }
 
-  public killEnemy(enemy: Enemy, playSound: boolean = true) {
+  public killEnemy(enemy: Enemy, playSound: boolean = true, isTurretKill: boolean = false) {
     enemy.deactivate();
     if (playSound) {
       this.scene.sound.play("hitHurt", { volume: 0.4 });
     }
     spawnParticles(this.scene, enemy.x, enemy.y, enemy.col);
     
-    const mult = getMultiplier(enemy.x, enemy.y);
-    this.scene.events.emit("enemyKilled", enemy, mult);
-    spawnMultiplier(this.scene, enemy.x, enemy.y, mult);
+    if (isTurretKill) {
+      const mult = getMultiplier(enemy.x, enemy.y);
+      this.scene.events.emit("enemyKilled", enemy, mult);
+      spawnMultiplier(this.scene, enemy.x, enemy.y, mult);
+    }
 
     if (enemy.isElite) {
       const type = Phaser.Utils.Array.GetRandom(["bomb", "health", "rage"]);
@@ -431,11 +435,14 @@ export class EntityManager {
 
     const duration = STALEMATE_BASE_DURATION / (1 + Math.abs(fSquad.length - eSquad.length));
 
-    // Pre-calculate which units will be destroyed/hit to add flashing feedback
+    // Pre-calculate which units will be destroyed/hit to add flashing feedback (1-to-1 matching)
     const unitsToEliminate: { unit: (Friendly | Enemy), id: string }[] = [];
+    const targetedEnemies = new Set<Enemy>();
+    
     fSquad.forEach(f => {
-      const matchingEnemy = eSquad.find(e => e.active && e.col === f.col);
+      const matchingEnemy = eSquad.find(e => e.active && e.col === f.col && !targetedEnemies.has(e));
       if (matchingEnemy) {
+        targetedEnemies.add(matchingEnemy);
         unitsToEliminate.push({ unit: f, id: f.spawnId });
         unitsToEliminate.push({ unit: matchingEnemy, id: matchingEnemy.spawnId });
       }
@@ -460,8 +467,8 @@ export class EntityManager {
     });
 
     this.scene.time.delayedCall(duration, () => {
-      this.stalematedPairs.delete(pairKey);
-
+      // Keep in stalematedPairs permanently (for unit lifespan) to prevent immediate re-triggering due to physics overlap
+      
       // Stop flashing (only if same instance)
       unitsToEliminate.forEach(entry => {
         if (entry.unit.active && entry.unit.spawnId === entry.id) {
@@ -474,10 +481,12 @@ export class EntityManager {
                              enemy.active && enemy.spawnId === capturedEnemySpawnId;
 
       if (isMainPairValid) {
+        const resolvedEnemies = new Set<Enemy>();
         fSquadSnapshot.forEach(fEntry => {
           if (fEntry.unit.active && fEntry.unit.spawnId === fEntry.id) {
-            const matchingEnemyEntry = eSquadSnapshot.find(e => e.unit.active && e.unit.spawnId === e.id && e.unit.col === fEntry.unit.col);
+            const matchingEnemyEntry = eSquadSnapshot.find(e => e.unit.active && e.unit.spawnId === e.id && e.unit.col === fEntry.unit.col && !resolvedEnemies.has(e.unit));
             if (matchingEnemyEntry) { 
+              resolvedEnemies.add(matchingEnemyEntry.unit);
               matchingEnemyEntry.unit.hp -= 1; 
               fEntry.unit.deactivate(); 
               if (matchingEnemyEntry.unit.hp <= 0) this.killEnemy(matchingEnemyEntry.unit); 
@@ -486,10 +495,12 @@ export class EntityManager {
         });
       }
 
+      // ALWAYS clear stalemate flags for the snapshots, even if units were recycled (ensures freedom)
       [...fSquadSnapshot, ...eSquadSnapshot].forEach(entry => {
         const u = entry.unit;
         if (u.active && u.spawnId === entry.id) {
           u.isStalemated = false;
+          u.stalemateOpponentSquadId = null;
           if (u instanceof Enemy && u.body) u.body.setVelocity(-u.speed, 0);
         }
       });

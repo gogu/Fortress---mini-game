@@ -27,7 +27,7 @@ export interface ILevelConfig {
   friendlySpawnInterval: number;
   friendlyUnitCost: number;
   nextLevelCondition: {
-    type: "time" | "score";
+    type: "time" | "score" | "combo";
     value: number;
   };
   waves?: IWaveConfig[];
@@ -60,7 +60,7 @@ export class LevelManager extends Phaser.Events.EventEmitter {
     }
   }
 
-  public update(delta: number, successCounts: number[]) {
+  public update(delta: number, successCounts: number[], currentCombo: number = 0) {
     if (this.isCompleted || this.currentLevelIndex === -1 || this.levelCompletionSignaled) return;
 
     this.timeInLevel += delta;
@@ -76,6 +76,10 @@ export class LevelManager extends Phaser.Events.EventEmitter {
     } else if (currentConfig.nextLevelCondition.type === "score") {
       // Current game win condition is every color >= value
       if (successCounts.every(count => count >= currentConfig.nextLevelCondition.value)) {
+        conditionMet = true;
+      }
+    } else if (currentConfig.nextLevelCondition.type === "combo") {
+      if (currentCombo >= currentConfig.nextLevelCondition.value) {
         conditionMet = true;
       }
     }

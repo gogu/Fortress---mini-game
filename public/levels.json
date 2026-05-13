@@ -69,7 +69,7 @@
       "enemySpeed": 65,
       "eliteSpawnChance": 0.5,
       "colorWeights": [0.34, 0.33, 0.33],
-      "friendlySpawnInterval": 3000,
+      "friendlySpawnInterval": 10000,
       "friendlyUnitCost": 1,
       "nextLevelCondition": {
         "type": "time",
@@ -106,9 +106,9 @@
     {
       "id": 5,
       "name": "Wave 2",
-      "enemySpawnInterval": 3500,
+      "enemySpawnInterval": 4000,
       "enemySpawnSquads": 3,
-      "enemySquadSize": 4,
+      "enemySquadSize": 1,
       "enemySpeed": 55,
       "eliteSpawnChance": 0.2,
       "colorWeights": [0.1, 0.1, 0.8],
@@ -131,8 +131,8 @@
       "friendlySpawnInterval": 3000,
       "friendlyUnitCost": 1,
       "nextLevelCondition": {
-        "type": "time",
-        "value": 45000
+        "type": "combo",
+        "value": 10
       }
     },
     {

@@ -131,7 +131,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
-    this.levelManager.update(delta, this.successCounts);
+    this.levelManager.update(delta, this.successCounts, this.combo);
     this.handleRageMode(time, delta);
     
     this.weaponManager.update(time, delta);

@@ -540,6 +540,11 @@ export class UIScene extends Phaser.Scene {
       this.successTexts.forEach(t => t.setVisible(false));
       this.victoryLabel.setText("坚持生存:");
       this.timerLabel.setX(this.victoryLabel.x + this.victoryLabel.width + 5);
+    } else if (config.nextLevelCondition.type === "combo") {
+      this.timerLabel.setVisible(false);
+      this.successBlocks.forEach(b => b.setVisible(false));
+      this.successTexts.forEach(t => t.setVisible(false));
+      this.victoryLabel.setText(`目标连击: ${config.nextLevelCondition.value}`);
     } else {
       this.timerLabel.setVisible(false);
       this.successBlocks.forEach(b => b.setVisible(true));
