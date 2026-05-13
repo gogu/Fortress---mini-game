@@ -68,7 +68,6 @@
       "enemySquadSize": 3,
       "enemySpeed": 65,
       "eliteSpawnChance": 0.5,
-      "eliteSpawnInterval": 8000,
       "colorWeights": [0.34, 0.33, 0.33],
       "friendlySpawnInterval": 10000,
       "friendlyUnitCost": 1,
@@ -90,13 +89,12 @@
     },
     {
       "id": 4,
-      "name": "Wave 1",
+      "name": "来点热身",
       "enemySpawnInterval": 2000,
       "enemySpawnSquads": 1,
       "enemySquadSize": 3,
       "enemySpeed": 95,
       "eliteSpawnChance": 0.05,
-      "eliteSpawnInterval": 12000,
       "colorWeights": [0.8, 0.1, 0.1],
       "friendlySpawnInterval": 2500,
       "friendlyUnitCost": 1,
@@ -107,13 +105,28 @@
     },
     {
       "id": 5,
-      "name": "Wave 2",
+      "name": "精确射击",
+      "enemySpawnInterval": 3000,
+      "enemySpawnSquads": 1,
+      "enemySquadSize": 1,
+      "enemySpeed": 50,
+      "eliteSpawnChance": 0,
+      "colorWeights": [0.33, 0.34, 0.33],
+      "friendlySpawnInterval": 9999999,
+      "friendlyUnitCost": 1,
+      "nextLevelCondition": {
+        "type": "combo",
+        "value": 20
+      }
+    },
+    {
+      "id": 6,
+      "name": "掩护优先（紫）",
       "enemySpawnInterval": 4000,
       "enemySpawnSquads": 3,
       "enemySquadSize": 1,
       "enemySpeed": 55,
       "eliteSpawnChance": 0.2,
-      "eliteSpawnInterval": 10000,
       "colorWeights": [0.1, 0.1, 0.8],
       "friendlySpawnInterval": 4000,
       "friendlyUnitCost": 2,
@@ -123,85 +136,52 @@
       }
     },
     {
-      "id": 6,
-      "name": "Wave 3",
-      "enemySpawnInterval": 2500,
+      "id": 7,
+      "name": "人海战术",
+      "enemySpawnInterval": 3000,
       "enemySpawnSquads": 2,
       "enemySquadSize": 3,
-      "enemySpeed": 75,
-      "eliteSpawnChance": 0.1,
-      "eliteSpawnInterval": 10000,
-      "colorWeights": [0.33, 0.34, 0.33],
-      "friendlySpawnInterval": 3000,
-      "friendlyUnitCost": 1,
+      "enemySpeed": 70,
+      "eliteSpawnChance": 1,
+      "eliteSpawnInterval": 3000,
+      "colorWeights": [0.3, 0.3, 0.3],
+      "friendlySpawnInterval": 500,
+      "friendlyUnitCost": 2,
       "nextLevelCondition": {
-        "type": "combo",
-        "value": 10
+        "type": "time",
+        "value": 30000
       }
-    },
-    {
-      "id": 7,
-      "name": "Wave 4",
-      "enemySpawnInterval": 1800,
-      "enemySpawnSquads": 2,
-      "enemySquadSize": 5,
-      "enemySpeed": 90,
-      "eliteSpawnChance": 0.25,
-      "eliteSpawnInterval": 8000,
-      "colorWeights": [0.33, 0.33, 0.34],
-      "friendlySpawnInterval": 1200,
-      "friendlyUnitCost": 1,
-      "nextLevelCondition": {
-        "type": "score",
-        "value": 25
-      }
+          
+
     },
     {
       "id": 8,
-      "name": "Wave 5",
-      "enemySpawnInterval": 4000,
+      "name": "坚持就是胜利",
+      "enemySpawnInterval": 1500,
       "enemySpawnSquads": 2,
-      "enemySquadSize": 6,
-      "enemySpeed": 70,
-      "eliteSpawnChance": 0.5,
-      "eliteSpawnInterval": 7000,
-      "colorWeights": [0.3, 0.4, 0.3],
-      "friendlySpawnInterval": 3500,
-      "friendlyUnitCost": 2,
-      "nextLevelCondition": {
-        "type": "score",
-        "value": 30
-      }
-    },
-    {
-      "id": 9,
-      "name": "Wave 6",
-      "enemySpawnInterval": -1,
-      "enemySpawnSquads": 2,
-      "enemySquadSize": 3,
-      "enemySpeed": 75,
-      "eliteSpawnChance": 1,
-      "eliteSpawnInterval": 6000,
-      "colorWeights": [0, 0, 0],
-      "friendlySpawnInterval": 3000,
-      "friendlyUnitCost": 1,
-      "nextLevelCondition": {
-        "type": "score",
-        "value": 50
-      }
-    },
-    {
-      "id": 10,
-      "name": "Wave 7",
-      "enemySpawnInterval": 1200,
-      "enemySpawnSquads": 4,
-      "enemySquadSize": 8,
-      "enemySpeed": 100,
-      "eliteSpawnChance": 0.25,
-      "eliteSpawnInterval": 5000,
+      "enemySquadSize": 5,
+      "enemySpeed": 30,
+      "eliteSpawnChance": 0,
       "colorWeights": [0.33, 0.33, 0.34],
       "friendlySpawnInterval": 2000,
-      "friendlyUnitCost": 2,
+      "friendlyUnitCost": 1,
+      "nextLevelCondition": {
+        "type": "time",
+        "value": 50000
+      }
+    },
+ 
+    {
+      "id": 9,
+      "name": "最终决战",
+      "enemySpawnInterval": 1500,
+      "enemySpawnSquads": 1,
+      "enemySquadSize": 3,
+      "enemySpeed": 90,
+      "eliteSpawnChance": 0.1,
+      "colorWeights": [0.33, 0.33, 0.34],
+      "friendlySpawnInterval": 1500,
+      "friendlyUnitCost": 1,
       "nextLevelCondition": {
         "type": "score",
         "value": 50
