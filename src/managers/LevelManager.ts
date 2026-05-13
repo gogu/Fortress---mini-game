@@ -23,6 +23,7 @@ export interface ILevelConfig {
   enemySquadSize?: number; // New: optional enemy squad size, defaults to 3
   enemySpeed: number;
   eliteSpawnChance: number;
+  eliteSpawnInterval?: number; // New: optional elite spawn interval in ms
   colorWeights?: number[]; // [cyan, orange, purple] e.g., [0.5, 0.3, 0.2]
   friendlySpawnInterval: number;
   friendlyUnitCost: number;

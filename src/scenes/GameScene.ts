@@ -336,12 +336,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startRandomSpawning(config: ILevelConfig) {
-    this.entityManager.spawnEnemySquad(config);
-    this.enemySpawnEvent = this.time.addEvent({
-      delay: config.enemySpawnInterval, callback: () => this.entityManager.spawnEnemySquad(config), loop: true
-    });
+    if (config.enemySpawnInterval !== -1) {
+      this.entityManager.spawnEnemySquad(config);
+      this.enemySpawnEvent = this.time.addEvent({
+        delay: config.enemySpawnInterval, callback: () => this.entityManager.spawnEnemySquad(config), loop: true
+      });
+    }
+    
     this.eliteSpawnEvent = this.time.addEvent({
-      delay: 10000, callback: () => { if (Math.random() < config.eliteSpawnChance) this.entityManager.spawnElite(config); }, loop: true
+      delay: config.eliteSpawnInterval || 10000, callback: () => { if (Math.random() < config.eliteSpawnChance) this.entityManager.spawnElite(config); }, loop: true
     });
   }
 
