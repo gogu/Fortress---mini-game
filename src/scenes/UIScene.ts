@@ -4,6 +4,7 @@ import { GameScene } from "./GameScene";
 import { ILevelConfig } from "../managers/LevelManager";
 import { HandDrawnButton } from "../ui/HandDrawnButton";
 import { PaperTransition } from "../ui/PaperTransition";
+import { ScanlineOverlay } from "../ui/ScanlineOverlay";
 
 export class UIScene extends Phaser.Scene {
   private goldLabel!: Phaser.GameObjects.Text;
@@ -27,7 +28,7 @@ export class UIScene extends Phaser.Scene {
   private fpsLabel!: Phaser.GameObjects.Text;
   private pausedLabel!: Phaser.GameObjects.Text;
   private pauseOverlayBg!: Phaser.GameObjects.Rectangle;
-  private scanlineOverlay!: Phaser.GameObjects.TileSprite;
+  private scanlineOverlay!: ScanlineOverlay;
   private resumeBtn!: HandDrawnButton;
   private bombBtn!: Phaser.GameObjects.Image;
   private bombCostLabel!: Phaser.GameObjects.Text;
@@ -142,8 +143,9 @@ export class UIScene extends Phaser.Scene {
     });
     this.resumeBtn.setVisible(false).setDepth(100);
 
-    // Create Scanline Texture and Overlay
-    this.createScanlineOverlay();
+    // Create Scanline Overlay
+    this.scanlineOverlay = new ScanlineOverlay(this);
+    this.scanlineOverlay.setVisible(false);
 
     // Right Side: Items (shifted down to avoid gold)
     this.rageLabel = this.add.text(SCREEN_WIDTH - 20, 180, "RAGE: 0s", { fontFamily: "WuXin", fontSize: "16px", color: "#4b0082" }).setOrigin(1, 0).setAlpha(0);
@@ -195,20 +197,6 @@ export class UIScene extends Phaser.Scene {
       this.pausedLabel.setVisible(false);
       this.resumeBtn.setVisible(false);
     }
-  }
-
-  private createScanlineOverlay() {
-    // Create a 2x4 texture for scanlines (one line dark, one line transparent)
-    const graphics = this.make.graphics({ x: 0, y: 0 });
-    graphics.fillStyle(0x000000, 0.2);
-    graphics.fillRect(0, 0, 2, 2);
-    graphics.generateTexture("scanline", 2, 4);
-    
-    this.scanlineOverlay = this.add.tileSprite(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, "scanline")
-      .setOrigin(0)
-      .setDepth(99)
-      .setAlpha(0.6)
-      .setVisible(false);
   }
 
   private createHealthBar() {

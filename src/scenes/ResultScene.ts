@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { SCREEN_WIDTH, SCREEN_HEIGHT, DEFAULT_START_LEVEL } from "../constants";
 import { HandDrawnButton } from "../ui/HandDrawnButton";
 import { PaperTransition } from "../ui/PaperTransition";
+import { ScanlineOverlay } from "../ui/ScanlineOverlay";
 
 export interface ResultData {
   isVictory: boolean;
@@ -83,8 +84,6 @@ export class ResultScene extends Phaser.Scene {
     statsContainer.add(restartBtn);
 
     // Retro scanline effect for this specific UI
-    for (let i = 0; i < SCREEN_HEIGHT; i += 4) {
-      this.add.rectangle(SCREEN_WIDTH / 2, i, SCREEN_WIDTH, 1, 0x000000, 0.1).setDepth(100);
-    }
+    new ScanlineOverlay(this, 100, 0.6);
   }
 }

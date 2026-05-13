@@ -32,7 +32,10 @@ export class PaperTransition {
     
     const tearLine = { x: -50 };
     const segments = 30;
-    const segmentHeight = (SCREEN_HEIGHT + 40) / segments;
+    const topMargin = 30;
+    const bottomMargin = 30;
+    const drawHeight = SCREEN_HEIGHT - topMargin - bottomMargin;
+    const segmentHeight = drawHeight / segments;
     const wobble = 12;
     
     // Generate initial random offsets for the edge
@@ -43,15 +46,15 @@ export class PaperTransition {
       maskGraphics.clear();
       maskGraphics.fillStyle(0xffffff);
       maskGraphics.beginPath();
-      maskGraphics.moveTo(-50, -20);
+      maskGraphics.moveTo(-50, topMargin);
       
       for (let i = 0; i <= segments; i++) {
-        const y = i * segmentHeight - 20;
+        const y = topMargin + i * segmentHeight;
         const curWobble = offsets[i] + (Math.random() - 0.5) * 3; // Micro-vibration
         maskGraphics.lineTo(tearLine.x + curWobble, y);
       }
 
-      maskGraphics.lineTo(-50, SCREEN_HEIGHT + 20);
+      maskGraphics.lineTo(-50, SCREEN_HEIGHT - bottomMargin);
       maskGraphics.closePath();
       maskGraphics.fillPath();
 
@@ -62,18 +65,18 @@ export class PaperTransition {
       // Draw shadow
       tearShadow.lineStyle(10, 0x000000, 0.1);
       tearShadow.beginPath();
-      tearShadow.moveTo(tearLine.x + offsets[0] + 5, -20);
+      tearShadow.moveTo(tearLine.x + offsets[0] + 5, topMargin);
       for (let i = 1; i <= segments; i++) {
-        tearShadow.lineTo(tearLine.x + offsets[i] + 5, i * segmentHeight - 20);
+        tearShadow.lineTo(tearLine.x + offsets[i] + 5, topMargin + i * segmentHeight);
       }
       tearShadow.strokePath();
 
       // Draw white torn edge
       tearEdge.lineStyle(4, 0xffffff, 1);
       tearEdge.beginPath();
-      tearEdge.moveTo(tearLine.x + offsets[0], -20);
+      tearEdge.moveTo(tearLine.x + offsets[0], topMargin);
       for (let i = 1; i <= segments; i++) {
-        const y = i * segmentHeight - 20;
+        const y = topMargin + i * segmentHeight;
         tearEdge.lineTo(tearLine.x + offsets[i], y);
       }
       tearEdge.strokePath();
