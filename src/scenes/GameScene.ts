@@ -292,6 +292,7 @@ export class GameScene extends Phaser.Scene {
     if (this.eliteSpawnEvent) this.eliteSpawnEvent.destroy();
     if (this.friendlySpawnEvent) this.friendlySpawnEvent.destroy();
 
+    this.entityManager.stopSpawning();
     this.entityManager.clearAll();
     this.weaponManager.getBullets().clear(true, true);
 

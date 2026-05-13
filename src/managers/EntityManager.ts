@@ -59,6 +59,7 @@ export class EntityManager {
   }
 
   public startPreciseLevel(config: ILevelConfig) {
+    this.stopSpawning(); // Ensure everything is clean before starting
     this.spawningEnabled = true;
     this.currentLevelConfig = config;
     this.currentWaveIndex = 0;
@@ -81,7 +82,9 @@ export class EntityManager {
     this.isWaitingForNextWave = false;
     
     // Cancel staggered delayed calls
-    this.pendingSpawns.forEach(t => t.destroy());
+    this.pendingSpawns.forEach(t => {
+      if (t) t.destroy();
+    });
     this.pendingSpawns = [];
 
     // Cancel wave timer
@@ -95,6 +98,7 @@ export class EntityManager {
     if (!this.spawningEnabled) return;
     this.isWaitingForNextWave = true;
     
+    if (this.waveTimer) this.waveTimer.destroy();
     this.waveTimer = this.scene.time.delayedCall(wave.delayBeforeStart, () => {
       this.waveTimer = null;
       if (!this.spawningEnabled) return;
@@ -208,7 +212,8 @@ export class EntityManager {
       const squadSize = config.enemySquadSize || SQUAD_SIZE;
 
       for (let i = 0; i < squadSize; i++) {
-        this.scene.time.delayedCall(i * 150, () => {
+        const t = this.scene.time.delayedCall(i * 150, () => {
+          this.pendingSpawns = this.pendingSpawns.filter(ev => ev !== t);
           const e = this.enemies.get() as Enemy;
           if (e) {
             let spawnY = laneY + Phaser.Math.Between(-20, 20);
@@ -216,6 +221,7 @@ export class EntityManager {
             e.spawn(SCREEN_WIDTH + 50, spawnY, MODES[colorIndex].color, config.enemySpeed, squadId, laneIndex, false);
           }
         });
+        this.pendingSpawns.push(t);
       }
     }
   }
