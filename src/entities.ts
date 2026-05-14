@@ -121,6 +121,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.setTint(0xffffff);
     this.setAlpha(1);
 
+    this.shadowGraphics.setVisible(true);
     if (isElite) {
       this.setScale(0.5); // 50% size for elite (with 368x246 texture, visual size is preserved)
       this.setTexture("enemy_elite");
@@ -195,6 +196,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     }
 
     this.drawShadow();
+    this.shadowGraphics.setVisible(true);
   }
 
   private drawShadow() {
@@ -226,8 +228,6 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     super.preUpdate(time, delta);
     if (!this.active) return;
     
-    this.shadowGraphics.setPosition(this.x, this.y);
-
     if (this.isElite) {
       this.eliteTimer += delta;
 
@@ -266,18 +266,24 @@ export class Enemy extends Phaser.GameObjects.Sprite {
       } else {
         if (this.body) this.body.setVelocity(0, 0);
       }
+      this.shadowGraphics.setPosition(this.x, this.y);
       return;
     }
 
     if (this.x < -100) {
       this.deactivate();
+      return;
     }
+
+    this.shadowGraphics.setPosition(this.x, this.y);
   }
 
   deactivate() {
     this.setActive(false);
     this.setVisible(false);
     this.shadowGraphics.clear();
+    this.shadowGraphics.setVisible(false);
+    this.shadowGraphics.setPosition(-1000, -1000);
     this.scene.tweens.killTweensOf(this);
     this.setAlpha(1);
     if (this.eliteParticles) {
@@ -368,6 +374,7 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     }
 
     this.drawShadow();
+    this.shadowGraphics.setVisible(true);
   }
 
   private drawShadow() {
@@ -397,7 +404,7 @@ export class Friendly extends Phaser.GameObjects.Sprite {
   preUpdate(time: number, delta: number) {
     super.preUpdate(time, delta);
     if (!this.active) return;
-
+    
     this.shadowGraphics.setPosition(this.x, this.y);
 
     // Check if the friendly crossed the finish line
@@ -430,6 +437,8 @@ export class Friendly extends Phaser.GameObjects.Sprite {
     this.setActive(false);
     this.setVisible(false);
     this.shadowGraphics.clear();
+    this.shadowGraphics.setVisible(false);
+    this.shadowGraphics.setPosition(-1000, -1000);
     this.scene.tweens.killTweensOf(this);
     this.setAlpha(1);
     if (this.body && 'setVelocity' in this.body) {

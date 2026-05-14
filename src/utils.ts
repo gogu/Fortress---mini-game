@@ -19,7 +19,7 @@ export function spawnParticles(scene: Phaser.Scene, x: number, y: number, color:
     lifespan: { min: 300, max: 600 },
     quantity: 12,
     tint: color,
-    blendMode: 'MULTIPLY', // Makes it look more like ink on paper
+    blendMode: 'NORMAL', 
     emitting: false
   });
   particles.explode();
