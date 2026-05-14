@@ -14,75 +14,75 @@ export class LoadingScene extends Phaser.Scene {
 
     // --- Load Fonts ---
     // Phaser 3.60+ supports font loading directly
-    this.load.font("WuXin", "/assets/fonts/WuXinShouXieTi-2.otf");
-    this.load.font("Yozai", "/assets/fonts/Yozai-Regular.ttf");
+    this.load.font("WuXin", "assets/fonts/WuXinShouXieTi-2.otf");
+    this.load.font("Yozai", "assets/fonts/Yozai-Regular.ttf");
 
     // Load sounds
-    this.load.audio("change", "/sfx/change.wav");
-    this.load.audio("hitHurt", "/sfx/hitHurt.wav");
-    this.load.audio("laserShoot", "/sfx/laserShoot.wav");
-    this.load.audio("laserShootFailed", "/sfx/laserShootFailed.wav");
-    this.load.audio("playerHurt", "/sfx/playerHurt.wav");
-    this.load.audio("completed", "/sfx/completed.wav");
-    this.load.audio("score", "/sfx/score.wav");
-    this.load.audio("transition", "/sfx/transition.wav");
-    this.load.audio("level_intro", "/sfx/level_intro.wav");
-    this.load.audio("congratulations", "/sfx/congratulations.mp3");
+    this.load.audio("change", "sfx/change.wav");
+    this.load.audio("hitHurt", "sfx/hitHurt.wav");
+    this.load.audio("laserShoot", "sfx/laserShoot.wav");
+    this.load.audio("laserShootFailed", "sfx/laserShootFailed.wav");
+    this.load.audio("playerHurt", "sfx/playerHurt.wav");
+    this.load.audio("completed", "sfx/completed.wav");
+    this.load.audio("score", "sfx/score.wav");
+    this.load.audio("transition", "sfx/transition.wav");
+    this.load.audio("level_intro", "sfx/level_intro.wav");
+    this.load.audio("congratulations", "sfx/congratulations.mp3");
 
     // Load background
-    this.load.image("bg_notebook", "/assets/bg/bg_main_notebook.png");
+    this.load.image("bg_notebook", "assets/bg/bg_main_notebook.png");
 
     // Load building assets
-    this.load.image("bldg_fortress", "/assets/buildings/bldg_fortress.png");
-    this.load.image("bldg_cannon_barrel", "/assets/buildings/bldg_cannon_barrel.png");
-    this.load.image("bldg_barracks", "/assets/buildings/bldg_barracks.png");
+    this.load.image("bldg_fortress", "assets/buildings/bldg_fortress.png");
+    this.load.image("bldg_cannon_barrel", "assets/buildings/bldg_cannon_barrel.png");
+    this.load.image("bldg_barracks", "assets/buildings/bldg_barracks.png");
 
     // Load UI assets
-    this.load.image("ui_health_bar_frame", "/assets/ui/ui_health_bar_frame.png");
-    this.load.image("ui_health_bar_fill", "/assets/ui/ui_health_bar_fill.png");
-    this.load.image("ui_icon_coin", "/assets/ui/ui_icon_coin.png");
-    this.load.image("ui_pause", "/assets/ui/ui_pause.png");
-    this.load.image("ui_bomb", "/assets/ui/ui_bomb.png");
-    this.load.image("ui_combo_bg", "/assets/ui/ui_combo_bg.png");
+    this.load.image("ui_health_bar_frame", "assets/ui/ui_health_bar_frame.png");
+    this.load.image("ui_health_bar_fill", "assets/ui/ui_health_bar_fill.png");
+    this.load.image("ui_icon_coin", "assets/ui/ui_icon_coin.png");
+    this.load.image("ui_pause", "assets/ui/ui_pause.png");
+    this.load.image("ui_bomb", "assets/ui/ui_bomb.png");
+    this.load.image("ui_combo_bg", "assets/ui/ui_combo_bg.png");
 
     // Load Item assets
-    this.load.image("item_drop_bomb", "/assets/items/item_drop_bomb.png");
-    this.load.image("item_drop_health", "/assets/items/item_drop_health.png");
-    this.load.image("item_drop_rage", "/assets/items/item_drop_rage.png");
+    this.load.image("item_drop_bomb", "assets/items/item_drop_bomb.png");
+    this.load.image("item_drop_health", "assets/items/item_drop_health.png");
+    this.load.image("item_drop_rage", "assets/items/item_drop_rage.png");
 
     // Load Unit assets
-    this.load.spritesheet("friend_cyan", "/assets/units/friend_cyan.png", {
+    this.load.spritesheet("friend_cyan", "assets/units/friend_cyan.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("friend_orange", "/assets/units/friend_orange.png", {
+    this.load.spritesheet("friend_orange", "assets/units/friend_orange.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("friend_purple", "/assets/units/friend_purple.png", {
+    this.load.spritesheet("friend_purple", "assets/units/friend_purple.png", {
       frameWidth: 184,
       frameHeight: 123
     });
 
-    this.load.spritesheet("enemy_cyan", "/assets/units/enemy_cyan.png", {
+    this.load.spritesheet("enemy_cyan", "assets/units/enemy_cyan.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("enemy_orange", "/assets/units/enemy_orange.png", {
+    this.load.spritesheet("enemy_orange", "assets/units/enemy_orange.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("enemy_purple", "/assets/units/enemy_purple.png", {
+    this.load.spritesheet("enemy_purple", "assets/units/enemy_purple.png", {
       frameWidth: 184,
       frameHeight: 123
     });
-    this.load.spritesheet("enemy_elite", "/assets/units/enemy_elite.png", {
+    this.load.spritesheet("enemy_elite", "assets/units/enemy_elite.png", {
       frameWidth: 368,
       frameHeight: 246
     });
 
     // Load Level Configuration
-    this.load.json("levels", "/levels.json");
+    this.load.json("levels", "levels.json");
 
     // Events
     this.load.on("loaderror", (file: any) => {
